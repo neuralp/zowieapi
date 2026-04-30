@@ -1,0 +1,3028 @@
+openapi: 3.0.3
+info:
+  title: ZowieTek Device API
+  description: |
+    REST API for controlling ZowieTek devices (ZowieBox, ZowiePTZ, ZowieCam, MediDVR, etc.).
+    All endpoints use POST requests. The device IP replaces `{host}` in the server URL.
+
+    **Authentication:** Use `login_check_flag=1` as a query parameter on all requests.
+
+    **Status Codes:**
+    - `00000` — Success
+    - `00002` — Program not ready
+    - `00003` — Missing required parameters
+    - `00004` — Product not supported
+    - `00005` — Switch opening failed
+    - `00006` — Switch not open
+    - `00007` — Enable not open
+    - `00008` — Verification code error
+    - `00009` — Operation too fast
+    - `00010` — Restarting, please wait
+    - `50001` — NDI activation failed
+    - `60001–60013` — Streaming errors
+    - `70001–70016` — Network errors
+    - `80001–80009` — User management errors
+    - `100001–100015` — Storage errors
+    - `110001–110008` — Recording task errors
+    - `140001–140006` — Decoding errors
+  version: "1.5"
+  contact:
+    name: Zowietek Electronics, Ltd.
+    email: support@zowietek.com
+
+servers:
+  - url: "http://{host}"
+    description: Device IP address
+    variables:
+      host:
+        default: "192.168.1.1"
+        description: IP address of the ZowieTek device
+
+tags:
+  - name: Input/Output
+    description: HDMI input/output signal and settings
+  - name: PTZ Camera Control (ZowieBox)
+    description: Control an external PTZ camera from ZowieBox
+  - name: PTZ Control
+    description: Direct PTZ movement, focus, zoom, and preset control
+  - name: Encoding
+    description: Video encoding parameters
+  - name: Decoding
+    description: Stream decoding (RTSP/RTMP/SRT)
+  - name: NDI Decoding
+    description: NDI source discovery and decoding
+  - name: NDI
+    description: NDI encoding configuration and activation
+  - name: Audio
+    description: Audio configuration and switch
+  - name: Streaming
+    description: Stream publishing management
+  - name: AP
+    description: Wi-Fi Access Point configuration
+  - name: LAN
+    description: Local Area Network configuration
+  - name: WiFi
+    description: Wi-Fi client configuration
+  - name: Port
+    description: Service port configuration
+  - name: mDNS
+    description: mDNS hostname configuration
+  - name: User Management
+    description: Account management and authentication
+  - name: Device Time
+    description: System time management
+  - name: Recording
+    description: Recording tasks and file management
+  - name: Snapshot
+    description: Snapshot capture and retrieval
+  - name: Tally
+    description: Tally LED control
+  - name: Restore & Reboot
+    description: System reboot, factory reset, standby
+  - name: Image Settings
+    description: Camera exposure, color, and image settings
+  - name: Patient Case
+    description: Medical patient case management (MediDVR)
+  - name: Pan/Tilt/Zoom/Focus Control
+    description: PTZ and focus control via ptzctrl endpoint
+  - name: Temperature
+    description: Device CPU temperature
+
+paths:
+
+  # ─── INPUT/OUTPUT ──────────────────────────────────────────────────────────
+
+  /video:
+    post:
+      tags: [Input/Output, Encoding, NDI]
+      summary: Video endpoint (multi-purpose)
+      description: |
+        General-purpose video endpoint. The `option` query parameter selects `getinfo` or `setinfo`.
+        The `group` and `opt` fields in the body select the specific operation.
+      operationId: videoEndpoint
+      parameters:
+        - $ref: '#/components/parameters/LoginCheckFlag'
+        - $ref: '#/components/parameters/OptionParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/GetInputInfoRequest'
+                - $ref: '#/components/schemas/SetOutputInfoRequest'
+                - $ref: '#/components/schemas/GetOutputInfoRequest'
+                - $ref: '#/components/schemas/GetEncodingRequest'
+                - $ref: '#/components/schemas/SetEncodingRequest'
+                - $ref: '#/components/schemas/GetDigitalZoomRequest'
+                - $ref: '#/components/schemas/SetDigitalZoomRequest'
+                - $ref: '#/components/schemas/NdiActivateRequest'
+                - $ref: '#/components/schemas/GetNdiLicenseRequest'
+                - $ref: '#/components/schemas/GetNdiInfoRequest'
+                - $ref: '#/components/schemas/SetNdiInfoRequest'
+                - $ref: '#/components/schemas/NdiSwitchRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+
+  # ─── PTZ ──────────────────────────────────────────────────────────────────
+
+  /ptz:
+    post:
+      tags: [PTZ Camera Control (ZowieBox), PTZ Control, Image Settings]
+      summary: PTZ endpoint (multi-purpose)
+      description: PTZ control, configuration, and image aperture settings.
+      operationId: ptzEndpoint
+      parameters:
+        - $ref: '#/components/parameters/LoginCheckFlag'
+        - $ref: '#/components/parameters/OptionParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/GetPtzInfoRequest'
+                - $ref: '#/components/schemas/SetPtzInfoRequest'
+                - $ref: '#/components/schemas/PtzControlRequest'
+                - $ref: '#/components/schemas/PtzControlWithValueRequest'
+                - $ref: '#/components/schemas/PtzControlWithPointRequest'
+                - $ref: '#/components/schemas/PtzControlPresetRequest'
+                - $ref: '#/components/schemas/GetFocusModeRequest'
+                - $ref: '#/components/schemas/SetFocusModeRequest'
+                - $ref: '#/components/schemas/GetAfSensitivityRequest'
+                - $ref: '#/components/schemas/SetAfSensitivityRequest'
+                - $ref: '#/components/schemas/GetFocusZoneRequest'
+                - $ref: '#/components/schemas/SetFocusZoneRequest'
+                - $ref: '#/components/schemas/GetFocusSpeedRequest'
+                - $ref: '#/components/schemas/SetFocusSpeedRequest'
+                - $ref: '#/components/schemas/GetAfLockRequest'
+                - $ref: '#/components/schemas/SetAfLockRequest'
+                - $ref: '#/components/schemas/GetZoomSpeedRequest'
+                - $ref: '#/components/schemas/SetZoomSpeedRequest'
+                - $ref: '#/components/schemas/GetApertureRequest'
+                - $ref: '#/components/schemas/SetApertureRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+
+  # ─── DECODING / NDI DECODING ──────────────────────────────────────────────
+
+  /streamplay:
+    post:
+      tags: [Decoding, NDI Decoding]
+      summary: Stream decoding endpoint
+      operationId: streamplayEndpoint
+      parameters:
+        - $ref: '#/components/parameters/LoginCheckFlag'
+        - $ref: '#/components/parameters/OptionParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/StreamplayAddRequest'
+                - $ref: '#/components/schemas/StreamplayGetAllRequest'
+                - $ref: '#/components/schemas/StreamplayDeleteRequest'
+                - $ref: '#/components/schemas/StreamplayModifyRequest'
+                - $ref: '#/components/schemas/GetDecoderStateRequest'
+                - $ref: '#/components/schemas/NdiFindRequest'
+                - $ref: '#/components/schemas/NdiGetAllRequest'
+                - $ref: '#/components/schemas/NdiRecvRequest'
+                - $ref: '#/components/schemas/NdiCloseRequest'
+                - $ref: '#/components/schemas/NdiGetRecvConfigRequest'
+                - $ref: '#/components/schemas/NdiSetRecvConfigRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+
+  # ─── AUDIO ────────────────────────────────────────────────────────────────
+
+  /audio:
+    post:
+      tags: [Audio]
+      summary: Audio configuration endpoint
+      operationId: audioEndpoint
+      parameters:
+        - $ref: '#/components/parameters/LoginCheckFlag'
+        - $ref: '#/components/parameters/OptionParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/GetAudioAllRequest'
+                - $ref: '#/components/schemas/SetAudioRequest'
+                - $ref: '#/components/schemas/AudioSwitchRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+
+  # ─── STREAMING ────────────────────────────────────────────────────────────
+
+  /stream:
+    post:
+      tags: [Streaming]
+      summary: Stream publish endpoint
+      operationId: streamEndpoint
+      parameters:
+        - $ref: '#/components/parameters/LoginCheckFlag'
+        - $ref: '#/components/parameters/OptionParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/AddPublishInfoRequest'
+                - $ref: '#/components/schemas/GetStreamStatusRequest'
+                - $ref: '#/components/schemas/UpdatePublishSwitchRequest'
+                - $ref: '#/components/schemas/DeletePublishInfoRequest'
+                - $ref: '#/components/schemas/UpdateStreamsIndexRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+
+  # ─── NETWORK ──────────────────────────────────────────────────────────────
+
+  /network:
+    post:
+      tags: [AP, LAN, WiFi, Port, mDNS]
+      summary: Network configuration endpoint
+      operationId: networkEndpoint
+      parameters:
+        - $ref: '#/components/parameters/LoginCheckFlag'
+        - $ref: '#/components/parameters/OptionParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/GetApInfoRequest'
+                - $ref: '#/components/schemas/UpdateApInfoRequest'
+                - $ref: '#/components/schemas/ApSwitchRequest'
+                - $ref: '#/components/schemas/GetLanInfoRequest'
+                - $ref: '#/components/schemas/SetLanInfoRequest'
+                - $ref: '#/components/schemas/GetLocalPingRequest'
+                - $ref: '#/components/schemas/GetLanPingRequest'
+                - $ref: '#/components/schemas/GetMainIpRequest'
+                - $ref: '#/components/schemas/WifiSwitchRequest'
+                - $ref: '#/components/schemas/GetWifiListRequest'
+                - $ref: '#/components/schemas/GetWifiInfoRequest'
+                - $ref: '#/components/schemas/WifiConnectRequest'
+                - $ref: '#/components/schemas/GetPortsInfoRequest'
+                - $ref: '#/components/schemas/SetPortsInfoRequest'
+                - $ref: '#/components/schemas/GetMdnsInfoRequest'
+                - $ref: '#/components/schemas/SetMdnsInfoRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+
+  # ─── SYSTEM ───────────────────────────────────────────────────────────────
+
+  /system:
+    post:
+      tags: [User Management, Device Time, Tally, Restore & Reboot, Temperature]
+      summary: System endpoint (multi-purpose)
+      operationId: systemEndpoint
+      parameters:
+        - $ref: '#/components/parameters/LoginCheckFlag'
+        - $ref: '#/components/parameters/OptionParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/GetAccountsInfoRequest'
+                - $ref: '#/components/schemas/DeleteAccountRequest'
+                - $ref: '#/components/schemas/AddAccountRequest'
+                - $ref: '#/components/schemas/UpdateAccountRequest'
+                - $ref: '#/components/schemas/LoginRequest'
+                - $ref: '#/components/schemas/LogoutRequest'
+                - $ref: '#/components/schemas/VerifyAccountRequest'
+                - $ref: '#/components/schemas/GetSystimeRequest'
+                - $ref: '#/components/schemas/SetSystimeRequest'
+                - $ref: '#/components/schemas/GetTallyInfoRequest'
+                - $ref: '#/components/schemas/SetTallyInfoRequest'
+                - $ref: '#/components/schemas/SetTallySwitchRequest'
+                - $ref: '#/components/schemas/GetTallyColorRequest'
+                - $ref: '#/components/schemas/RebootRequest'
+                - $ref: '#/components/schemas/RestoreFactoryRequest'
+                - $ref: '#/components/schemas/StandbyRequest'
+                - $ref: '#/components/schemas/ExitStandbyRequest'
+                - $ref: '#/components/schemas/GetCpuTempRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+
+  # ─── STORAGE / RECORDING ──────────────────────────────────────────────────
+
+  /storage:
+    post:
+      tags: [Recording]
+      summary: Storage status endpoint
+      operationId: storageEndpoint
+      parameters:
+        - $ref: '#/components/parameters/LoginCheckFlag'
+        - $ref: '#/components/parameters/OptionParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetStorageStatusRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+
+  /record:
+    post:
+      tags: [Recording]
+      summary: Recording task endpoint
+      operationId: recordEndpoint
+      parameters:
+        - $ref: '#/components/parameters/LoginCheckFlag'
+        - $ref: '#/components/parameters/OptionParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/GetTaskListRequest'
+                - $ref: '#/components/schemas/SetTaskInfoRequest'
+                - $ref: '#/components/schemas/SetTaskEnableRequest'
+                - $ref: '#/components/schemas/GetTaskSaveFilesRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+
+  # ─── SNAPSHOT ─────────────────────────────────────────────────────────────
+
+  /snapshot:
+    post:
+      tags: [Snapshot]
+      summary: Snapshot endpoint
+      operationId: snapshotEndpoint
+      parameters:
+        - $ref: '#/components/parameters/LoginCheckFlag'
+        - name: option
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [takephoto, getinfo]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/TakePhotoRequest'
+                - $ref: '#/components/schemas/GetPhotoListRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+
+  # ─── CAMERA (IMAGE SETTINGS) ──────────────────────────────────────────────
+
+  /camera:
+    post:
+      tags: [Image Settings]
+      summary: Camera image settings endpoint
+      operationId: cameraEndpoint
+      parameters:
+        - $ref: '#/components/parameters/LoginCheckFlag'
+        - $ref: '#/components/parameters/OptionParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/GetExposureInfoRequest'
+                - $ref: '#/components/schemas/SetExposureInfoRequest'
+                - $ref: '#/components/schemas/GetWhiteBalanceInfoRequest'
+                - $ref: '#/components/schemas/SetWhiteBalanceInfoRequest'
+                - $ref: '#/components/schemas/GetImageInfoRequest'
+                - $ref: '#/components/schemas/SetImageInfoRequest'
+                - $ref: '#/components/schemas/GetNrInfoRequest'
+                - $ref: '#/components/schemas/SetNrInfoRequest'
+                - $ref: '#/components/schemas/GetStyleInfoRequest'
+                - $ref: '#/components/schemas/SetStyleInfoRequest'
+                - $ref: '#/components/schemas/GetAeLockRequest'
+                - $ref: '#/components/schemas/SetAeLockRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+
+  # ─── PATIENT ──────────────────────────────────────────────────────────────
+
+  /patient:
+    post:
+      tags: [Patient Case]
+      summary: Patient case management endpoint (MediDVR)
+      operationId: patientEndpoint
+      parameters:
+        - $ref: '#/components/parameters/LoginCheckFlag'
+        - $ref: '#/components/parameters/OptionParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/AddPatientRequest'
+                - $ref: '#/components/schemas/GetPatientCasesRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+
+  # ─── PTZCTRL ──────────────────────────────────────────────────────────────
+
+  /ptzctrl:
+    post:
+      tags: [Pan/Tilt/Zoom/Focus Control]
+      summary: PTZ control transmit endpoint (ZowieBox/ZowieBox-SDI/ZowieKBD)
+      operationId: ptzctrlEndpoint
+      parameters:
+        - $ref: '#/components/parameters/LoginCheckFlag'
+        - name: option
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [transmit]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/PanTiltControlRequest'
+                - $ref: '#/components/schemas/ZoomControlRequest'
+                - $ref: '#/components/schemas/GoHomeRequest'
+                - $ref: '#/components/schemas/SetPresetCtrlRequest'
+                - $ref: '#/components/schemas/RecallPresetCtrlRequest'
+                - $ref: '#/components/schemas/ClearPresetCtrlRequest'
+                - $ref: '#/components/schemas/SetFocusModeCtrlRequest'
+                - $ref: '#/components/schemas/GetFocusModeCtrlRequest'
+                - $ref: '#/components/schemas/FocusCtrlRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+
+# ─── COMPONENTS ────────────────────────────────────────────────────────────────
+
+components:
+  parameters:
+    LoginCheckFlag:
+      name: login_check_flag
+      in: query
+      required: true
+      schema:
+        type: integer
+        enum: [1]
+      description: Must be 1 to enable login check
+
+    OptionParam:
+      name: option
+      in: query
+      required: true
+      schema:
+        type: string
+        enum: [getinfo, setinfo]
+      description: getinfo to retrieve data, setinfo to modify data
+
+  schemas:
+
+    # ── Common ──────────────────────────────────────────────────────────────
+
+    GenericResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Status code (00000 = success)
+          example: "00000"
+        rsp:
+          type: string
+          description: Human-readable status description
+          example: "succeed"
+
+    SelectableField:
+      type: object
+      properties:
+        selected_id:
+          type: integer
+      required: [selected_id]
+
+    # ── Input/Output ─────────────────────────────────────────────────────────
+
+    GetInputInfoRequest:
+      type: object
+      description: "Detect input signal (ZowieBox). option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [hdmi]
+        opt:
+          type: string
+          enum: [get_input_info]
+      required: [group, opt]
+
+    SetOutputInfoRequest:
+      type: object
+      description: "Set output resolution/audio/loopout (ZowieBox, ZowieCam, ZowiePTZ). option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [hdmi]
+        opt:
+          type: string
+          enum: [set_output_info]
+        data:
+          type: object
+          properties:
+            format:
+              type: string
+              enum: [2160p30, 2160p25, 2160p24, 1080p60, 1080p50, 1080p30, 1080p25, 1080p24, 1080i60, 1080i50, 720p60, 720p50]
+              description: Output resolution
+            audio_switch:
+              type: integer
+              enum: [0, 1]
+              description: "0=mute, 1=unmute"
+            loop_out_switch:
+              type: integer
+              enum: [0, 1]
+              description: "0=output, 1=loop out (ZowieBox only)"
+          required: [format]
+      required: [group, opt, data]
+
+    GetOutputInfoRequest:
+      type: object
+      description: "Get current output info (ZowieBox, ZowiePTZ, ZowieCam). option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [hdmi]
+        opt:
+          type: string
+          enum: [get_output_info]
+      required: [group, opt]
+
+    # ── PTZ Camera Config (ZowieBox) ─────────────────────────────────────────
+
+    GetPtzInfoRequest:
+      type: object
+      description: "Get PTZ camera configuration (ZowieBox). option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [ptz]
+        opt:
+          type: string
+          enum: [get_ptz_info]
+      required: [group, opt]
+
+    SetPtzInfoRequest:
+      type: object
+      description: "Set PTZ camera configuration (ZowieBox). option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [ptz]
+        opt:
+          type: string
+          enum: [set_ptz_info]
+        data:
+          type: object
+          properties:
+            protocol:
+              type: integer
+              description: "0=auto, 1=VISCA over IP, 3=VISCA, 4=Pelco-D, 5=Pelco-P"
+              enum: [0, 1, 3, 4, 5]
+            type:
+              type: integer
+              description: "Transfer protocol when protocol=1: 0=TCP, 1=UDP"
+              enum: [0, 1]
+            ip:
+              type: string
+              description: IP of controlled camera
+            baudrate_id:
+              type: integer
+              description: "0=2400, 1=4800, 2=9600, 3=11920, 4=38400"
+              enum: [0, 1, 2, 3, 4]
+            port:
+              type: integer
+              minimum: 1025
+              maximum: 65535
+            addr:
+              type: integer
+              description: Camera address
+            addr_fix:
+              type: integer
+              enum: [0, 1]
+              description: "0=on, 1=off"
+      required: [group, opt, data]
+
+    # ── PTZ Control ──────────────────────────────────────────────────────────
+
+    PtzControlRequest:
+      type: object
+      description: |
+        PTZ one-step or continuous control (ZowiePTZ). option=setinfo
+        opid values: 1=pan right (step), 2=pan right (continuous), 3=pan left (step),
+        4=pan left (continuous), 7=tilt up (step), 8=tilt up (continuous),
+        9=tilt down (step), 10=tilt down (continuous), 19=focus near (step),
+        20=focus near (continuous), 21=focus far (step), 22=focus far (continuous)
+      properties:
+        group:
+          type: string
+          enum: [ptz]
+        opt:
+          type: string
+          enum: [control]
+        opid:
+          type: integer
+          enum: [1, 2, 3, 4, 7, 8, 9, 10, 19, 20, 21, 22]
+      required: [group, opt, opid]
+
+    PtzControlWithValueRequest:
+      type: object
+      description: |
+        Specify absolute horizontal (opid=5) or vertical (opid=11) position (ZowiePTZ). option=setinfo
+      properties:
+        group:
+          type: string
+          enum: [ptz]
+        opt:
+          type: string
+          enum: [control]
+        opid:
+          type: integer
+          enum: [5, 11]
+          description: "5=horizontal position, 11=vertical position"
+        data:
+          type: object
+          properties:
+            value:
+              type: integer
+              description: "opid=5: 0–8000; opid=11: 0–2100"
+          required: [value]
+      required: [group, opt, opid, data]
+
+    PtzControlWithPointRequest:
+      type: object
+      description: "Trigger one-push focus (opid=25, ZowiePTZ). option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [ptz]
+        opt:
+          type: string
+          enum: [control]
+        opid:
+          type: integer
+          enum: [25]
+        point:
+          type: object
+          properties:
+            x_percent:
+              type: integer
+            y_percent:
+              type: integer
+            d_pixel:
+              type: integer
+          required: [x_percent, y_percent, d_pixel]
+      required: [group, opt, opid]
+
+    PtzControlPresetRequest:
+      type: object
+      description: |
+        Set (opid=26), call (opid=29), delete (opid=28) presets (ZowiePTZ). option=setinfo
+      properties:
+        group:
+          type: string
+          enum: [ptz]
+        opt:
+          type: string
+          enum: [control]
+        opid:
+          type: integer
+          enum: [26, 28, 29]
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+              minimum: 0
+              maximum: 254
+              description: Preset ID
+            desc:
+              type: string
+              description: Preset name (for set/update)
+      required: [group, opt, opid, data]
+
+    GetFocusModeRequest:
+      type: object
+      description: "Get focus mode (ZowiePTZ, ZowieCam). option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [ptz]
+        opt:
+          type: string
+          enum: [get_focusmode]
+      required: [group, opt]
+
+    SetFocusModeRequest:
+      type: object
+      description: "Set focus mode (ZowiePTZ, ZowieCam). option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [ptz]
+        opt:
+          type: string
+          enum: [set_focus_mode]
+        data:
+          type: object
+          properties:
+            focusmode:
+              type: integer
+              enum: [0, 1, 2]
+              description: "0=AUTO, 1=MANUAL, 2=ONE_PUSH"
+          required: [focusmode]
+      required: [group, opt, data]
+
+    GetAfSensitivityRequest:
+      type: object
+      description: "Get autofocus sensitivity (ZowiePTZ, ZowieCam). option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [ptz]
+        opt:
+          type: string
+          enum: [get_sensitivity]
+      required: [group, opt]
+
+    SetAfSensitivityRequest:
+      type: object
+      description: "Set autofocus sensitivity (ZowiePTZ, ZowieCam). option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [ptz]
+        opt:
+          type: string
+          enum: [set_sensitivity]
+        data:
+          type: object
+          properties:
+            selected_id:
+              type: integer
+              enum: [0, 1, 2, 3]
+              description: "0=high, 1=medium, 2=low, 3=ultra low"
+          required: [selected_id]
+      required: [group, opt, data]
+
+    GetFocusZoneRequest:
+      type: object
+      description: "Get focus area (ZowiePTZ, ZowieCam). option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [ptz]
+        opt:
+          type: string
+          enum: [get_focus_zone]
+      required: [group, opt]
+
+    SetFocusZoneRequest:
+      type: object
+      description: "Set focus area (ZowiePTZ, ZowieCam). option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [ptz]
+        opt:
+          type: string
+          enum: [set_focus_zone]
+        data:
+          type: object
+          properties:
+            selected_id:
+              type: integer
+              enum: [0, 1, 2, 3, 4, 5, 6]
+              description: "0=top, 1=center, 2=bottom, 3=left, 4=right, 5=all, 6=point"
+            point:
+              type: object
+              properties:
+                x_percent:
+                  type: integer
+                y_percent:
+                  type: integer
+                d_pixel:
+                  type: integer
+          required: [selected_id]
+      required: [group, opt, data]
+
+    GetFocusSpeedRequest:
+      type: object
+      description: "Get focus speed (ZowiePTZ, ZowieCam). option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [ptz]
+        opt:
+          type: string
+          enum: [get_focus_speed]
+      required: [group, opt]
+
+    SetFocusSpeedRequest:
+      type: object
+      description: "Set focus speed (ZowiePTZ, ZowieCam). option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [ptz]
+        opt:
+          type: string
+          enum: [set_focus_speed]
+        data:
+          type: object
+          properties:
+            focus:
+              type: integer
+              minimum: 1
+              maximum: 10
+            save_flag:
+              type: integer
+              enum: [0, 1]
+              description: "0=unsaved, 1=save"
+          required: [focus]
+      required: [group, opt, data]
+
+    GetAfLockRequest:
+      type: object
+      description: "Get AF lock status (ZowiePTZ, ZowieCam). option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [ptz]
+        opt:
+          type: string
+          enum: [get_af_lock_status]
+      required: [group, opt]
+
+    SetAfLockRequest:
+      type: object
+      description: "Set AF lock status (ZowiePTZ, ZowieCam). option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [ptz]
+        opt:
+          type: string
+          enum: [set_af_lock_status]
+        data:
+          type: object
+          properties:
+            af_lock_status:
+              type: integer
+              enum: [0, 1]
+              description: "0=off, 1=on"
+          required: [af_lock_status]
+      required: [group, opt, data]
+
+    GetDigitalZoomRequest:
+      type: object
+      description: "Get digital zoom magnification (ZowiePTZ, ZowieCam). option=getinfo, endpoint=/video"
+      properties:
+        group:
+          type: string
+          enum: [digital_zoom]
+      required: [group]
+
+    SetDigitalZoomRequest:
+      type: object
+      description: "Set digital zoom magnification (ZowiePTZ, ZowieCam). option=setinfo, endpoint=/video"
+      properties:
+        group:
+          type: string
+          enum: [digital_zoom]
+        digital_zoom:
+          type: integer
+          minimum: 100
+          maximum: 1200
+        digital_zoom_enable:
+          type: integer
+          enum: [0, 1]
+          description: "0=off, 1=on"
+        digital_zoom_max:
+          type: integer
+          description: Maximum digital zoom magnification
+      required: [group]
+
+    GetZoomSpeedRequest:
+      type: object
+      description: "Get zoom speed (ZowiePTZ, ZowieCam). option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [ptz]
+        opt:
+          type: string
+          enum: [get_zoom_speed]
+      required: [group, opt]
+
+    SetZoomSpeedRequest:
+      type: object
+      description: "Set zoom speed (ZowiePTZ, ZowieCam). option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [ptz]
+        opt:
+          type: string
+          enum: [set_zoom_speed]
+        data:
+          type: object
+          properties:
+            zoom:
+              type: integer
+              minimum: 1
+              maximum: 10
+            save_flag:
+              type: integer
+              enum: [0, 1]
+              description: "0=unsaved, 1=save"
+          required: [zoom]
+      required: [group, opt, data]
+
+    GetApertureRequest:
+      type: object
+      description: "Get aperture value (ZowiePTZ, ZowieCam). option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [ptz]
+        opt:
+          type: string
+          enum: [get_aperture]
+      required: [group, opt]
+
+    SetApertureRequest:
+      type: object
+      description: "Set aperture value (ZowiePTZ, ZowieCam). option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [ptz]
+        opt:
+          type: string
+          enum: [set_aperture]
+        data:
+          type: object
+          properties:
+            aperture:
+              type: integer
+              minimum: 0
+              maximum: 12
+              description: "0=CLOSE, 1=F11.0, 2=F9.6, 3=F8.0, 4=F6.8, 5=F5.6, 6=F4.8, 7=F4.0, 8=F3.4, 9=F2.8, 10=F2.4, 11=F2.0, 12=F1.6"
+          required: [aperture]
+      required: [group, opt, data]
+
+    # ── Encoding ─────────────────────────────────────────────────────────────
+
+    GetEncodingRequest:
+      type: object
+      description: "Get all encoding parameters. option=getinfo, endpoint=/video"
+      properties:
+        group:
+          type: string
+          enum: [all]
+      required: [group]
+
+    SetEncodingRequest:
+      type: object
+      description: "Modify encoding parameters. option=setinfo, endpoint=/video"
+      properties:
+        group:
+          type: string
+          enum: [venc]
+        venc:
+          type: array
+          items:
+            type: object
+            properties:
+              venc_chnid:
+                type: integer
+                description: "0=main, 1=sub, 2=snapshot"
+              codec:
+                type: object
+                properties:
+                  selected_id:
+                    type: integer
+                    enum: [0, 1, 2]
+                    description: "0=H.264, 1=H.265, 2=MJPEG"
+                  codec_list:
+                    type: array
+                    items:
+                      type: string
+              profile:
+                type: object
+                properties:
+                  selected_id:
+                    type: integer
+                    enum: [0, 1, 2]
+                    description: "0=BP, 1=MP, 2=HP"
+              ratecontrol:
+                type: object
+                properties:
+                  selected_id:
+                    type: integer
+                    enum: [0, 1]
+                    description: "0=CBR, 1=VBR"
+              bitrate:
+                type: integer
+                description: "Main: 64–51200, Sub: 64–25600 (kbps)"
+              ndi_bitrate_pre:
+                type: integer
+                minimum: 50
+                maximum: 125
+              width:
+                type: integer
+                enum: [3840, 2560, 1920, 1280, 1080, 720, 640, 320]
+              height:
+                type: integer
+                enum: [2160, 1440, 1080, 1280, 1920, 720, 360, 180]
+              framerate:
+                type: integer
+                enum: [60, 50, 30, 25, 15]
+              keyinterval:
+                type: integer
+                minimum: 20
+                maximum: 240
+              gop:
+                type: integer
+              MaxQP:
+                type: integer
+              MinQP:
+                type: integer
+              keyMinQP:
+                type: integer
+              QPlevel:
+                type: integer
+              rotate:
+                type: object
+                properties:
+                  selected_id:
+                    type: integer
+                    enum: [0, 1, 2, 3]
+                    description: "0=0°, 1=90°, 2=180°, 3=270°"
+              stream_id:
+                type: integer
+                enum: [0, 1, 2]
+              desc:
+                type: string
+      required: [group, venc]
+
+    # ── Decoding ─────────────────────────────────────────────────────────────
+
+    StreamplayAddRequest:
+      type: object
+      description: "Add a decoding URL (ZowieBox). option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [streamplay]
+        opt:
+          type: string
+          enum: [streamplay_add]
+        data:
+          type: object
+          properties:
+            switch:
+              type: integer
+              enum: [0, 1]
+            name:
+              type: string
+            streamtype:
+              type: integer
+              enum: [0, 1]
+              description: "0=local, 1=live"
+            url:
+              type: string
+          required: [url, name, switch, streamtype]
+      required: [group, opt, data]
+
+    StreamplayGetAllRequest:
+      type: object
+      description: "Get all decoding URLs (ZowieBox). option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [streamplay]
+        opt:
+          type: string
+          enum: [streamplay_get_all]
+      required: [group, opt]
+
+    StreamplayDeleteRequest:
+      type: object
+      description: "Delete a decoding URL by index (ZowieBox). option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [streamplay]
+        opt:
+          type: string
+          enum: [streamplay_del]
+        data:
+          type: object
+          properties:
+            index:
+              type: integer
+          required: [index]
+      required: [group, opt, data]
+
+    StreamplayModifyRequest:
+      type: object
+      description: "Modify a decoding URL entry (ZowieBox). option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [streamplay]
+        opt:
+          type: string
+          enum: [streamplay_modify]
+        data:
+          type: object
+          properties:
+            index:
+              type: integer
+            switch:
+              type: integer
+              enum: [0, 1]
+            name:
+              type: string
+            streamtype:
+              type: integer
+              enum: [0, 1]
+            url:
+              type: string
+          required: [index]
+      required: [group, opt, data]
+
+    GetDecoderStateRequest:
+      type: object
+      description: "Get decoder state (ZowieBox). option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [streamplay]
+        opt:
+          type: string
+          enum: [get_decoder_state]
+      required: [group, opt]
+
+    # ── NDI Decoding ─────────────────────────────────────────────────────────
+
+    NdiFindRequest:
+      type: object
+      description: "Search for NDI sources on the LAN (ZowieBox). option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [streamplay_ndi]
+        opt:
+          type: string
+          enum: [ndi_find]
+      required: [group, opt]
+
+    NdiGetAllRequest:
+      type: object
+      description: "Get all discovered NDI sources (ZowieBox). option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [streamplay_ndi]
+        opt:
+          type: string
+          enum: [ndi_get_all]
+      required: [group, opt]
+
+    NdiRecvRequest:
+      type: object
+      description: "Enable NDI decoding by source name (ZowieBox). option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [streamplay_ndi]
+        opt:
+          type: string
+          enum: [ndi_recv]
+        data:
+          type: object
+          properties:
+            ndi_name:
+              type: string
+          required: [ndi_name]
+      required: [group, opt, data]
+
+    NdiCloseRequest:
+      type: object
+      description: "Disable NDI decoding (ZowieBox). option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [streamplay_ndi]
+        opt:
+          type: string
+          enum: [ndi_close]
+      required: [group, opt]
+
+    NdiGetRecvConfigRequest:
+      type: object
+      description: "Get NDI decoder group (ZowieBox). option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [streamplay_ndi]
+        opt:
+          type: string
+          enum: [ndi_get_recv_config]
+      required: [group, opt]
+
+    NdiSetRecvConfigRequest:
+      type: object
+      description: "Set NDI decoder group (ZowieBox). option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [streamplay_ndi]
+        opt:
+          type: string
+          enum: [ndi_set_recv_config]
+        data:
+          type: object
+          properties:
+            groups:
+              type: string
+          required: [groups]
+      required: [group, opt, data]
+
+    # ── NDI Encoding ─────────────────────────────────────────────────────────
+
+    NdiActivateRequest:
+      type: object
+      description: "Activate NDI with license key. option=setinfo, endpoint=/video"
+      properties:
+        group:
+          type: string
+          enum: [ndi]
+        opt:
+          type: string
+          enum: [ndi_activate]
+        data:
+          type: object
+          properties:
+            license_key:
+              type: string
+          required: [license_key]
+      required: [group, opt, data]
+
+    GetNdiLicenseRequest:
+      type: object
+      description: "Get saved NDI license key. option=setinfo, endpoint=/video"
+      properties:
+        group:
+          type: string
+          enum: [ndi]
+        opt:
+          type: string
+          enum: [get_license_key]
+      required: [group, opt]
+
+    GetNdiInfoRequest:
+      type: object
+      description: "Get NDI configuration. option=getinfo, endpoint=/video"
+      properties:
+        group:
+          type: string
+          enum: [ndi]
+        opt:
+          type: string
+          enum: [get_ndi_info]
+      required: [group, opt]
+
+    SetNdiInfoRequest:
+      type: object
+      description: "Set NDI configuration. option=setinfo, endpoint=/video"
+      properties:
+        group:
+          type: string
+          enum: [ndi]
+        opt:
+          type: string
+          enum: [set_ndi_info]
+        data:
+          type: object
+          properties:
+            switch:
+              type: integer
+              enum: [0, 1]
+            mode_id:
+              type: integer
+              enum: [1, 2, 3]
+              description: "1=NDI|HX, 2=NDI|HX2, 3=NDI|HX3"
+            machinename:
+              type: string
+            groups:
+              type: string
+            multicast:
+              type: object
+              properties:
+                enable:
+                  type: integer
+                  enum: [0, 1]
+                netmask:
+                  type: string
+                netprefix:
+                  type: string
+                ttl:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+      required: [group, opt, data]
+
+    NdiSwitchRequest:
+      type: object
+      description: "Turn NDI on/off. option=setinfo, endpoint=/video"
+      properties:
+        group:
+          type: string
+          enum: [ndi]
+        opt:
+          type: string
+          enum: [ndi_switch]
+        data:
+          type: object
+          properties:
+            switch:
+              type: integer
+              enum: [0, 1]
+          required: [switch]
+      required: [group, opt, data]
+
+    # ── Audio ─────────────────────────────────────────────────────────────────
+
+    GetAudioAllRequest:
+      type: object
+      description: "Get all audio config. option=getinfo, endpoint=/audio"
+      properties:
+        group:
+          type: string
+          enum: [all]
+      required: [group]
+
+    SetAudioRequest:
+      type: object
+      description: "Set audio configuration. option=setinfo, endpoint=/audio"
+      properties:
+        group:
+          type: string
+          enum: [audio]
+        audio:
+          type: object
+          properties:
+            stream_id:
+              type: integer
+            ai_devid:
+              type: integer
+            ai_chnid:
+              type: array
+              items:
+                type: integer
+            adec_chnid:
+              type: integer
+            aenc_chnid:
+              type: integer
+            ai_type:
+              type: object
+              properties:
+                selected_id:
+                  type: integer
+                  enum: [0, 1, 2]
+                  description: "0=LINE IN, 1=Internal MIC, 2=HDMI IN"
+            switch:
+              type: integer
+              enum: [0, 1]
+            codec:
+              type: object
+              properties:
+                selected_id:
+                  type: integer
+                  enum: [0, 1, 2]
+                  description: "0=AAC, 1=MP3, 2=G.711A"
+            bitrate:
+              type: object
+              properties:
+                selected_id:
+                  type: integer
+                  enum: [0, 1, 2, 3, 4]
+                  description: "0=32000, 1=48000, 2=64000, 3=96000, 4=128000"
+            sample_rate:
+              type: object
+              properties:
+                selected_id:
+                  type: integer
+                  enum: [0, 1, 2, 3, 4]
+                  description: "0=8000, 1=16000, 2=32000, 3=44100, 4=48000"
+            bit_width:
+              type: integer
+              enum: [16]
+            channel:
+              type: integer
+              enum: [1, 2]
+              description: "1=mono, 2=stereo"
+            volume:
+              type: integer
+              minimum: 0
+              maximum: 100
+      required: [group, audio]
+
+    AudioSwitchRequest:
+      type: object
+      description: "Toggle audio on/off. option=setinfo, endpoint=/audio"
+      properties:
+        group:
+          type: string
+          enum: [audio_switch]
+        switch:
+          type: integer
+          enum: [0, 1]
+          description: "0=off, 1=on"
+      required: [group, switch]
+
+    # ── Streaming ─────────────────────────────────────────────────────────────
+
+    AddPublishInfoRequest:
+      type: object
+      description: "Add a new stream destination. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [publish]
+        opt:
+          type: string
+          enum: [add_publish_info]
+        data:
+          type: object
+          properties:
+            service:
+              type: string
+            protocol:
+              type: string
+              enum: [RTMP, SRT]
+            url:
+              type: string
+            key:
+              type: string
+            switch:
+              type: integer
+              enum: [0, 1]
+            desc:
+              type: string
+            name:
+              type: string
+          required: [protocol, url]
+      required: [group, opt, data]
+
+    GetStreamStatusRequest:
+      type: object
+      description: "Get all stream info/status. option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [getStreamStatus]
+      required: [group]
+
+    UpdatePublishSwitchRequest:
+      type: object
+      description: "Start/stop a stream by index. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [publish]
+        opt:
+          type: string
+          enum: [update_publish_switch]
+        data:
+          type: object
+          properties:
+            index:
+              type: integer
+            switch:
+              type: integer
+              enum: [0, 1]
+          required: [index, switch]
+      required: [group, opt, data]
+
+    DeletePublishInfoRequest:
+      type: object
+      description: "Delete a stream by index. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [publish]
+        opt:
+          type: string
+          enum: [del_publish_info]
+        data:
+          type: object
+          properties:
+            index:
+              type: integer
+          required: [index]
+      required: [group, opt, data]
+
+    UpdateStreamsIndexRequest:
+      type: object
+      description: "Modify display order of streams. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [publish]
+        opt:
+          type: string
+          enum: [update_streams_index]
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              show_index:
+                type: integer
+            required: [index, show_index]
+      required: [group, opt, data]
+
+    # ── AP ────────────────────────────────────────────────────────────────────
+
+    GetApInfoRequest:
+      type: object
+      description: "Get AP configuration. option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [ap]
+        opt:
+          type: string
+          enum: [get_ap_info]
+      required: [group, opt]
+
+    UpdateApInfoRequest:
+      type: object
+      description: "Modify AP SSID and password. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [ap]
+        opt:
+          type: string
+          enum: [update_ap_info]
+        data:
+          type: object
+          properties:
+            ssid:
+              type: string
+            psk:
+              type: string
+              minLength: 8
+          required: [ssid, psk]
+      required: [group, opt, data]
+
+    ApSwitchRequest:
+      type: object
+      description: "Turn AP on/off. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [ap]
+        opt:
+          type: string
+          enum: [ap_switch]
+        data:
+          type: object
+          properties:
+            switch:
+              type: integer
+              enum: [0, 1]
+          required: [switch]
+      required: [group, opt, data]
+
+    # ── LAN ───────────────────────────────────────────────────────────────────
+
+    GetLanInfoRequest:
+      type: object
+      description: "Get LAN configuration. option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [lan]
+        opt:
+          type: string
+          enum: [get_lan_info]
+      required: [group, opt]
+
+    SetLanInfoRequest:
+      type: object
+      description: "Set LAN configuration (DHCP must be off). option=getinfo (sic)"
+      properties:
+        group:
+          type: string
+          enum: [lan]
+        opt:
+          type: string
+          enum: [set_lan_info]
+        data:
+          type: object
+          properties:
+            ip_dhcp_switch:
+              type: integer
+              enum: [0, 1]
+            ip:
+              type: string
+            gateway:
+              type: string
+            subnetmask:
+              type: string
+            dns_dhcp_switch:
+              type: integer
+              enum: [0, 1]
+            dns1:
+              type: string
+            dns2:
+              type: string
+          required: [ip_dhcp_switch]
+      required: [group, opt, data]
+
+    GetLocalPingRequest:
+      type: object
+      description: "Check LAN local connectivity. option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [lan]
+        opt:
+          type: string
+          enum: [get_local_ping]
+      required: [group, opt]
+
+    GetLanPingRequest:
+      type: object
+      description: "Check internet connectivity. option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [lan]
+        opt:
+          type: string
+          enum: [get_lan_ping]
+      required: [group, opt]
+
+    GetMainIpRequest:
+      type: object
+      description: "Get the display IP address (LAN preferred, then WiFi). option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [get_main_ip]
+      required: [group]
+
+    # ── WiFi ──────────────────────────────────────────────────────────────────
+
+    WifiSwitchRequest:
+      type: object
+      description: "Turn WiFi on/off. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [wifi]
+        opt:
+          type: string
+          enum: [wifi_switch]
+        data:
+          type: object
+          properties:
+            switch:
+              type: integer
+              enum: [0, 1]
+          required: [switch]
+      required: [group, opt, data]
+
+    GetWifiListRequest:
+      type: object
+      description: "Get available WiFi networks. option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [wifi]
+        opt:
+          type: string
+          enum: [get_wifi_list]
+      required: [group, opt]
+
+    GetWifiInfoRequest:
+      type: object
+      description: "Get connected WiFi info. option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [wifi]
+        opt:
+          type: string
+          enum: [get_wifi_info]
+      required: [group, opt]
+
+    WifiConnectRequest:
+      type: object
+      description: "Connect to a WiFi network. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [wifi]
+        opt:
+          type: string
+          enum: [wifi_connect]
+        data:
+          type: object
+          properties:
+            ssid:
+              type: string
+            password:
+              type: string
+            signalLevel:
+              type: integer
+          required: [ssid, password]
+      required: [group, opt, data]
+
+    # ── Port ──────────────────────────────────────────────────────────────────
+
+    GetPortsInfoRequest:
+      type: object
+      description: "Get service port numbers. option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [ports]
+        opt:
+          type: string
+          enum: [get_ports_info]
+      required: [group, opt]
+
+    SetPortsInfoRequest:
+      type: object
+      description: "Set service port numbers. option=setinfo. Restart device after modification."
+      properties:
+        group:
+          type: string
+          enum: [ports]
+        opt:
+          type: string
+          enum: [set_ports_info]
+        data:
+          type: object
+          properties:
+            http:
+              type: integer
+              description: "80, or 1025–8079, or 8081–65530"
+            rtmp:
+              type: integer
+              minimum: 1025
+              maximum: 65530
+            rtsp:
+              type: integer
+              description: "554, or 1025–65530"
+            visca_tcp:
+              type: integer
+              minimum: 1025
+              maximum: 65530
+            visca_udp:
+              type: integer
+              minimum: 1025
+              maximum: 65530
+            rtp:
+              type: integer
+              minimum: 1025
+              maximum: 65530
+            websocket:
+              type: integer
+              minimum: 1025
+              maximum: 65530
+      required: [group, opt, data]
+
+    # ── mDNS ──────────────────────────────────────────────────────────────────
+
+    GetMdnsInfoRequest:
+      type: object
+      description: "Get mDNS hostname and domain. option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [mdns]
+        opt:
+          type: string
+          enum: [get_mdns_info]
+      required: [group, opt]
+
+    SetMdnsInfoRequest:
+      type: object
+      description: "Set mDNS hostname. Device will restart after modification. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [mdns]
+        opt:
+          type: string
+          enum: [set_mdns_info]
+        data:
+          type: object
+          properties:
+            host_name:
+              type: string
+            domain_name:
+              type: string
+          required: [host_name, domain_name]
+      required: [group, opt, data]
+
+    # ── User Management ───────────────────────────────────────────────────────
+
+    GetAccountsInfoRequest:
+      type: object
+      description: "Get user accounts. option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [account]
+        opt:
+          type: string
+          enum: [get_accounts_info]
+        data:
+          type: object
+          properties:
+            loginUserName:
+              type: string
+          required: [loginUserName]
+      required: [group, opt, data]
+
+    DeleteAccountRequest:
+      type: object
+      description: "Delete account by index. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [account]
+        opt:
+          type: string
+          enum: [del_account_by_id]
+        data:
+          type: object
+          properties:
+            index:
+              type: integer
+          required: [index]
+      required: [group, opt, data]
+
+    AddAccountRequest:
+      type: object
+      description: "Add a new user account. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [account]
+        opt:
+          type: string
+          enum: [add_account_info]
+        data:
+          type: object
+          properties:
+            type:
+              type: integer
+              enum: [0, 1, 2]
+              description: "0=admin, 1=super, 2=basic"
+            username:
+              type: string
+            password:
+              type: string
+          required: [type, username, password]
+      required: [group, opt, data]
+
+    UpdateAccountRequest:
+      type: object
+      description: "Modify user account. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [account]
+        opt:
+          type: string
+          enum: [update_account_by_id]
+        data:
+          type: object
+          properties:
+            index:
+              type: integer
+            type:
+              type: integer
+              enum: [0, 1, 2]
+            username:
+              type: string
+            password:
+              type: string
+          required: [index]
+      required: [group, opt, data]
+
+    LoginRequest:
+      type: object
+      description: "Login with credentials. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [account]
+        opt:
+          type: string
+          enum: [login_account]
+        data:
+          type: object
+          properties:
+            username:
+              type: string
+            password:
+              type: string
+          required: [username, password]
+      required: [group, opt, data]
+
+    LogoutRequest:
+      type: object
+      description: "Logout using session UUID. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [account]
+        opt:
+          type: string
+          enum: [logout_account]
+        data:
+          type: object
+          properties:
+            uuid:
+              type: string
+            username:
+              type: string
+          required: [uuid, username]
+      required: [group, opt, data]
+
+    VerifyAccountRequest:
+      type: object
+      description: "Verify account credentials. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [account]
+        opt:
+          type: string
+          enum: [verify_account]
+        data:
+          type: object
+          properties:
+            username:
+              type: string
+            password:
+              type: string
+          required: [username, password]
+      required: [group, opt, data]
+
+    # ── Device Time ───────────────────────────────────────────────────────────
+
+    GetSystimeRequest:
+      type: object
+      description: "Get device time. option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [systime]
+        opt:
+          type: string
+          enum: [get_systime_info]
+      required: [group, opt]
+
+    SetSystimeRequest:
+      type: object
+      description: "Set device time. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [systime]
+        opt:
+          type: string
+          enum: [set_systime_info]
+        data:
+          type: object
+          properties:
+            setting_mode_id:
+              type: integer
+              enum: [0, 1, 2]
+              description: "0=sync with computer, 1=manual, 2=NTP"
+            time:
+              type: object
+              properties:
+                year:
+                  type: integer
+                month:
+                  type: integer
+                day:
+                  type: integer
+                hour:
+                  type: integer
+                minute:
+                  type: integer
+                second:
+                  type: integer
+            time_zone_id:
+              type: string
+              description: e.g. "GMT-8"
+            ntp_enable:
+              type: integer
+              enum: [0, 1]
+            ntp_server:
+              type: string
+            ntp_port:
+              type: integer
+            time_type_id:
+              type: integer
+      required: [group, opt, data]
+
+    # ── Recording / Storage ───────────────────────────────────────────────────
+
+    GetStorageStatusRequest:
+      type: object
+      description: "Get storage device status. option=getinfo, endpoint=/storage"
+      properties:
+        group:
+          type: string
+          enum: [storage_status]
+      required: [group]
+
+    GetTaskListRequest:
+      type: object
+      description: "Get recording task list. option=getinfo, endpoint=/record"
+      properties:
+        group:
+          type: string
+          enum: [record]
+        opt:
+          type: string
+          enum: [get_task_list]
+      required: [group, opt]
+
+    SetTaskInfoRequest:
+      type: object
+      description: "Modify recording task info. option=setinfo, endpoint=/record"
+      properties:
+        group:
+          type: string
+          enum: [record]
+        opt:
+          type: string
+          enum: [set_task_info]
+        data:
+          type: object
+          properties:
+            index:
+              type: string
+              description: "e.g. usb1_0, sdcard_0, nas1_0"
+            name:
+              type: string
+            file_name_prefix:
+              type: string
+            record_format:
+              type: integer
+              enum: [0, 1, 2]
+              description: "0=mp4, 1=ts, 2=mov"
+            record_mode:
+              type: integer
+              enum: [0, 1]
+              description: "0=manual, 1=auto start"
+            record_loop_mode:
+              type: integer
+              enum: [0, 1]
+            limit_type:
+              type: integer
+              enum: [0, 1, 2]
+              description: "0=size split, 1=time split"
+            size_limit:
+              type: integer
+              enum: [0, 1, 2, 3]
+              description: "0=auto, 1=1.5G, 2=3G, 3=4G"
+            time_limit:
+              type: integer
+              enum: [0, 1, 2, 3]
+              description: "0=auto, 1=15min, 2=30min, 3=45min"
+            storage_id:
+              type: integer
+            stream_id:
+              type: integer
+          required: [index]
+      required: [group, opt, data]
+
+    SetTaskEnableRequest:
+      type: object
+      description: "Start/stop/pause recording. option=setinfo, endpoint=/record"
+      properties:
+        group:
+          type: string
+          enum: [record]
+        opt:
+          type: string
+          enum: [set_task_enable]
+        data:
+          type: object
+          properties:
+            index:
+              type: string
+              enum: [usb1_0, sdcard_0, nas1_0]
+            enable:
+              type: integer
+              enum: [0, 1, 2, 3]
+              description: "0=off, 1=on, 2=pause, 3=continue"
+          required: [index, enable]
+      required: [group, opt, data]
+
+    GetTaskSaveFilesRequest:
+      type: object
+      description: "Get video file list (paginated). option=getinfo, endpoint=/record"
+      properties:
+        group:
+          type: string
+          enum: [record]
+        opt:
+          type: string
+          enum: [get_task_savefiles_page]
+        data:
+          type: object
+          properties:
+            index:
+              type: string
+              enum: [usb1_0, sdcard_0, nas1_0]
+            control:
+              type: object
+              properties:
+                currentPage:
+                  type: integer
+                default_Record_Num:
+                  type: integer
+            case_num:
+              type: integer
+          required: [index]
+      required: [group, opt, data]
+
+    # ── Snapshot ──────────────────────────────────────────────────────────────
+
+    TakePhotoRequest:
+      type: object
+      description: "Take a snapshot. option=takephoto, endpoint=/snapshot"
+      properties:
+        num:
+          type: integer
+          minimum: 1
+          maximum: 3
+      required: [num]
+
+    GetPhotoListRequest:
+      type: object
+      description: "Get photo list (paginated). option=getinfo, endpoint=/snapshot"
+      properties:
+        group:
+          type: string
+          enum: [photo]
+        opt:
+          type: string
+          enum: [get_photo_list]
+        data:
+          type: object
+          properties:
+            storage_id:
+              type: integer
+              enum: [0, 1, 3]
+              description: "0=sdcard, 1=USB, 3=NAS"
+            control:
+              type: object
+              properties:
+                currentPage:
+                  type: integer
+                default_Num:
+                  type: integer
+            case_num:
+              type: integer
+      required: [group, opt]
+
+    # ── Tally ─────────────────────────────────────────────────────────────────
+
+    GetTallyInfoRequest:
+      type: object
+      description: "Get Tally LED info. option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [tally_led]
+        opt:
+          type: string
+          enum: [get_tally_led_info]
+      required: [group, opt]
+
+    SetTallyInfoRequest:
+      type: object
+      description: "Set Tally LED mode and color. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [tally_led]
+        opt:
+          type: string
+          enum: [set_tally_led_info]
+        data:
+          type: object
+          properties:
+            mode_id:
+              type: integer
+              minimum: 0
+              maximum: 4
+              description: "0=Auto, 1=Manual, 2=Tally, 3=Game (ZowieBox/ZowieREC), 4=Recorder (ZowieREC)"
+            color_id:
+              type: integer
+              enum: [0, 1, 2, 3]
+              description: "0=off, 1=red, 2=green, 3=blue"
+          required: [mode_id]
+      required: [group, opt, data]
+
+    SetTallySwitchRequest:
+      type: object
+      description: "Turn Tally on/off. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [tally_led]
+        opt:
+          type: string
+          enum: [set_tally_led_switch]
+        data:
+          type: object
+          properties:
+            switch:
+              type: integer
+              enum: [0, 1]
+          required: [switch]
+      required: [group, opt, data]
+
+    GetTallyColorRequest:
+      type: object
+      description: "Get current Tally color. option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [tally_led]
+        opt:
+          type: string
+          enum: [get_tally_led_color]
+      required: [group, opt]
+
+    # ── Restore & Reboot ──────────────────────────────────────────────────────
+
+    RebootRequest:
+      type: object
+      description: "Reboot the device. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [syscontrol]
+        opt:
+          type: string
+          enum: [set_reboot_info]
+        data:
+          type: object
+          properties:
+            command:
+              type: string
+              enum: [reboot]
+          required: [command]
+      required: [group, opt, data]
+
+    RestoreFactoryRequest:
+      type: object
+      description: "Restore factory defaults. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [syscontrol]
+        opt:
+          type: string
+          enum: [set_reset_info]
+        data:
+          type: object
+          properties:
+            command:
+              type: string
+              enum: [reset]
+          required: [command]
+      required: [group, opt, data]
+
+    StandbyRequest:
+      type: object
+      description: "Enter standby mode. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [syscontrol]
+        opt:
+          type: string
+          enum: [power_off]
+      required: [group, opt]
+
+    ExitStandbyRequest:
+      type: object
+      description: "Exit standby mode. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [syscontrol]
+        opt:
+          type: string
+          enum: [power_on]
+      required: [group, opt]
+
+    # ── Temperature ───────────────────────────────────────────────────────────
+
+    GetCpuTempRequest:
+      type: object
+      description: "Get CPU temperature. option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [get_cpu_temp]
+      required: [group]
+
+    # ── Image Settings ────────────────────────────────────────────────────────
+
+    GetExposureInfoRequest:
+      type: object
+      description: "Get exposure settings. option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [camera]
+        opt:
+          type: string
+          enum: [get_exposure_info]
+      required: [group, opt]
+
+    SetExposureInfoRequest:
+      type: object
+      description: "Modify exposure settings. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [camera]
+        opt:
+          type: string
+          enum: [set_exposure_info]
+        data:
+          type: object
+          properties:
+            mode:
+              type: object
+              properties:
+                selected_id:
+                  type: integer
+                  enum: [0, 1, 2, 3, 4]
+                  description: "0=Auto, 1=Manual, 2=ShutterFirst, 3=ApertureFirst, 4=BrightFirst"
+            bright:
+              type: integer
+            gain:
+              type: integer
+              minimum: 0
+              maximum: 16
+            shutter:
+              type: object
+              properties:
+                selected_id:
+                  type: integer
+                  minimum: 0
+                  maximum: 21
+            wdr:
+              type: object
+              properties:
+                selected_id:
+                  type: integer
+                  minimum: 0
+                  maximum: 8
+            flicker:
+              type: object
+              properties:
+                selected_id:
+                  type: integer
+                  enum: [0, 1, 2, 3]
+                  description: "0=Disable, 1=50Hz, 2=60Hz, 3=Auto"
+            bias_enable:
+              type: integer
+              enum: [0, 1]
+            bias:
+              type: integer
+              minimum: -3
+              maximum: 3
+            backlight_enable:
+              type: integer
+              enum: [0, 1]
+            backlight:
+              type: integer
+            metering:
+              type: object
+              properties:
+                selected_id:
+                  type: integer
+                  enum: [0, 1, 2, 3]
+                  description: "0=average, 1=center, 2=spot, 3=matrix"
+            sensitive:
+              type: object
+              properties:
+                selected_id:
+                  type: integer
+                  minimum: 0
+                  maximum: 9
+            save_flag:
+              type: integer
+              enum: [0, 1]
+      required: [group, opt, data]
+
+    GetWhiteBalanceInfoRequest:
+      type: object
+      description: "Get white balance/color settings. option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [camera]
+        opt:
+          type: string
+          enum: [get_white_balance_info]
+      required: [group, opt]
+
+    SetWhiteBalanceInfoRequest:
+      type: object
+      description: "Modify white balance/color settings. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [camera]
+        opt:
+          type: string
+          enum: [set_white_balance_info]
+        data:
+          type: object
+          properties:
+            mode:
+              type: object
+              properties:
+                selected_id:
+                  type: integer
+                  enum: [0, 1, 2, 3]
+                  description: "0=Auto, 1=Manual, 2=VAR, 3=OnePush"
+            var:
+              type: object
+              properties:
+                selected_id:
+                  type: integer
+                  minimum: 0
+                  maximum: 7
+                  description: "0=3000K … 7=6500K"
+            rgain:
+              type: integer
+              minimum: 0
+              maximum: 255
+            bgain:
+              type: integer
+              minimum: 0
+              maximum: 255
+            saturation:
+              type: integer
+              minimum: 1
+              maximum: 100
+            hue:
+              type: integer
+              minimum: -180
+              maximum: 180
+            ircut:
+              type: object
+              properties:
+                selected_id:
+                  type: integer
+                  enum: [0, 1]
+                  description: "0=IRCUT_DAY, 1=IRCUT_NIGHT"
+            wb_adjust:
+              type: integer
+            save_flag:
+              type: integer
+              enum: [0, 1]
+      required: [group, opt, data]
+
+    GetImageInfoRequest:
+      type: object
+      description: "Get image settings. option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [camera]
+        opt:
+          type: string
+          enum: [get_image_info]
+      required: [group, opt]
+
+    SetImageInfoRequest:
+      type: object
+      description: "Modify image settings. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [camera]
+        opt:
+          type: string
+          enum: [set_image_info]
+        data:
+          type: object
+          properties:
+            brightness:
+              type: integer
+              minimum: 0
+              maximum: 8
+            contrast:
+              type: integer
+              minimum: 0
+              maximum: 15
+            sharpness:
+              type: integer
+              minimum: 0
+              maximum: 10
+            gamma:
+              type: object
+              properties:
+                selected_id:
+                  type: integer
+                  minimum: 0
+                  maximum: 8
+            flip:
+              type: object
+              properties:
+                selected_id:
+                  type: integer
+                  enum: [0, 1, 2, 3, 4]
+                  description: "0=Disable, 1=H-Flip, 2=V-Flip, 3=HV-Flip, 4=Auto Flip"
+            color_gray:
+              type: object
+              properties:
+                selected_id:
+                  type: integer
+                  enum: [0, 1]
+                  description: "0=colour, 1=gray"
+            save_flag:
+              type: integer
+              enum: [0, 1]
+      required: [group, opt, data]
+
+    GetNrInfoRequest:
+      type: object
+      description: "Get noise reduction settings. option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [camera]
+        opt:
+          type: string
+          enum: [get_nr_info]
+      required: [group, opt]
+
+    SetNrInfoRequest:
+      type: object
+      description: "Modify noise reduction settings. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [camera]
+        opt:
+          type: string
+          enum: [set_nr_info]
+        data:
+          type: object
+          properties:
+            nr_2d:
+              type: object
+              properties:
+                selected_id:
+                  type: integer
+                  minimum: 0
+                  maximum: 8
+            nr_3d:
+              type: object
+              properties:
+                selected_id:
+                  type: integer
+                  minimum: 0
+                  maximum: 8
+            correction:
+              type: object
+              properties:
+                selected_id:
+                  type: integer
+                  minimum: 0
+                  maximum: 5
+            save_flag:
+              type: integer
+              enum: [0, 1]
+      required: [group, opt, data]
+
+    GetStyleInfoRequest:
+      type: object
+      description: "Get image style data. option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [camera]
+        opt:
+          type: string
+          enum: [get_style_info]
+      required: [group, opt]
+
+    SetStyleInfoRequest:
+      type: object
+      description: "Select image style. option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [camera]
+        opt:
+          type: string
+          enum: [set_style_info]
+        data:
+          type: object
+          properties:
+            selected_id:
+              type: integer
+              minimum: 0
+              maximum: 5
+              description: "0=default, 1=normal, 2=clarity, 3=bright, 4=soft, 5=beautify"
+            save_flag:
+              type: integer
+              enum: [0, 1]
+          required: [selected_id]
+      required: [group, opt, data]
+
+    GetAeLockRequest:
+      type: object
+      description: "Get AE lock status. option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [camera]
+        opt:
+          type: string
+          enum: [get_ae_lock_status]
+      required: [group, opt]
+
+    SetAeLockRequest:
+      type: object
+      description: "Set AE lock status. option=getinfo (sic)"
+      properties:
+        group:
+          type: string
+          enum: [camera]
+        opt:
+          type: string
+          enum: [set_ae_lock_status]
+        data:
+          type: object
+          properties:
+            ae_lock_status:
+              type: integer
+              enum: [0, 1]
+              description: "0=off, 1=on"
+          required: [ae_lock_status]
+      required: [group, opt, data]
+
+    # ── Patient Case ──────────────────────────────────────────────────────────
+
+    AddPatientRequest:
+      type: object
+      description: "Create patient case (MediDVR). option=setinfo"
+      properties:
+        group:
+          type: string
+          enum: [patient]
+        opt:
+          type: string
+          enum: [add_message_task]
+        data:
+          type: object
+          properties:
+            firstname:
+              type: string
+            secondname:
+              type: string
+            thirdname:
+              type: string
+            year:
+              type: string
+            month:
+              type: string
+            day:
+              type: string
+            id:
+              type: string
+            doctor:
+              type: string
+            message:
+              type: string
+            gender:
+              type: integer
+              enum: [0, 1]
+              description: "0=male, 1=female"
+            case_num:
+              type: integer
+            Examination_finding:
+              type: string
+            Check_prompt:
+              type: string
+            add_mode:
+              type: integer
+            patient_id:
+              type: integer
+      required: [group, opt, data]
+
+    GetPatientCasesRequest:
+      type: object
+      description: "Query all patient cases (MediDVR). option=getinfo"
+      properties:
+        group:
+          type: string
+          enum: [patient]
+        opt:
+          type: string
+          enum: [get_message_task]
+        data:
+          type: object
+          properties:
+            sort:
+              type: integer
+      required: [group, opt]
+
+    # ── Pan/Tilt/Zoom/Focus Control (ptzctrl) ──────────────────────────────────
+
+    PanTiltControlRequest:
+      type: object
+      description: "Pan and tilt control (ZowieBox). option=transmit"
+      properties:
+        group:
+          type: string
+          enum: [ptz_ctrl]
+        opt:
+          type: string
+          enum: [pan_tilt]
+        data:
+          type: object
+          properties:
+            pan_speed:
+              type: integer
+              minimum: -10
+              maximum: 10
+              description: "0=stop; negative=right; positive=left"
+            tilt_speed:
+              type: integer
+              minimum: -10
+              maximum: 10
+              description: "0=stop; negative=down; positive=up"
+          required: [pan_speed, tilt_speed]
+      required: [group, opt, data]
+
+    ZoomControlRequest:
+      type: object
+      description: "Zoom control (ZowieBox). option=transmit"
+      properties:
+        group:
+          type: string
+          enum: [ptz_ctrl]
+        opt:
+          type: string
+          enum: [zoom]
+        data:
+          type: object
+          properties:
+            zoom_speed:
+              type: integer
+              minimum: -10
+              maximum: 10
+              description: "0=stop; negative=zoom out; positive=zoom in"
+          required: [zoom_speed]
+      required: [group, opt, data]
+
+    GoHomeRequest:
+      type: object
+      description: "Return to home/default position (ZowieBox). option=transmit"
+      properties:
+        group:
+          type: string
+          enum: [ptz_ctrl]
+        opt:
+          type: string
+          enum: [gohome]
+        data:
+          type: object
+          properties:
+            pan_speed:
+              type: integer
+            tilt_speed:
+              type: integer
+            zoom_speed:
+              type: integer
+      required: [group, opt]
+
+    SetPresetCtrlRequest:
+      type: object
+      description: "Save a preset position (ZowieBox). option=transmit"
+      properties:
+        group:
+          type: string
+          enum: [ptz_ctrl]
+        opt:
+          type: string
+          enum: [set_preset]
+        data:
+          type: object
+          properties:
+            preset_id:
+              type: integer
+              description: "NDI protocol: 0–99"
+          required: [preset_id]
+      required: [group, opt, data]
+
+    RecallPresetCtrlRequest:
+      type: object
+      description: "Recall a preset position (ZowieBox). option=transmit"
+      properties:
+        group:
+          type: string
+          enum: [ptz_ctrl]
+        opt:
+          type: string
+          enum: [recall_preset]
+        data:
+          type: object
+          properties:
+            preset_id:
+              type: integer
+            pan_speed:
+              type: integer
+            tilt_speed:
+              type: integer
+            zoom_speed:
+              type: integer
+          required: [preset_id]
+      required: [group, opt, data]
+
+    ClearPresetCtrlRequest:
+      type: object
+      description: "Delete a preset position (ZowieBox). NDI protocol not supported. option=transmit"
+      properties:
+        group:
+          type: string
+          enum: [ptz_ctrl]
+        opt:
+          type: string
+          enum: [clear_preset]
+        data:
+          type: object
+          properties:
+            preset_id:
+              type: integer
+          required: [preset_id]
+      required: [group, opt, data]
+
+    SetFocusModeCtrlRequest:
+      type: object
+      description: "Set focus mode via ptzctrl (ZowieBox). option=transmit"
+      properties:
+        group:
+          type: string
+          enum: [ptz_ctrl]
+        opt:
+          type: string
+          enum: [set_focus_mode]
+        data:
+          type: object
+          properties:
+            mode_id:
+              type: integer
+              enum: [0, 1, 2]
+              description: "0=Auto, 1=Manual, 2=OnePush (Visca only)"
+          required: [mode_id]
+      required: [group, opt, data]
+
+    GetFocusModeCtrlRequest:
+      type: object
+      description: "Get focus mode via ptzctrl (ZowieBox). option=transmit"
+      properties:
+        group:
+          type: string
+          enum: [ptz_ctrl]
+        opt:
+          type: string
+          enum: [get_focus_mode]
+      required: [group, opt]
+
+    FocusCtrlRequest:
+      type: object
+      description: "Continuous focus control (ZowieBox). option=transmit"
+      properties:
+        group:
+          type: string
+          enum: [ptz_ctrl]
+        opt:
+          type: string
+          enum: [focus]
+        data:
+          type: object
+          properties:
+            focus_speed:
+              type: integer
+              minimum: -10
+              maximum: 10
+              description: "0=stop; negative=focus far; positive=focus near"
+          required: [focus_speed]
+      required: [group, opt, data]

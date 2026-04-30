@@ -1,0 +1,20 @@
+openapi: 3.1.0
+info:
+  title: zowietek-api-minimum-v1.5
+  version: '1.0'
+  summary: Minimum required for Crestron control of the ZowieTEK devices.
+  contact:
+    name: 'Nicholas Pepper, CTS-D'
+servers:
+  - url: 'https://localhost/'
+    description: ''
+paths: {}
+components:
+  schemas: {}
+  securitySchemes:
+    queryParameter:
+      name: login_check_flag
+      type: apiKey
+      in: query
+security:
+  - queryParameter: []

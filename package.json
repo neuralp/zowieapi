@@ -1,0 +1,16 @@
+{
+  "name": "zowieapi",
+  "version": "1.0.0",
+  "description": "C# implementation of the ZowieAPI",
+  "license": "BSD-2-Clause",
+  "author": "Nicholas Pepper, CTS-D",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "generate": "openapi-generator-cli generate -i ./api/zowietek-api-v1.5.yaml -g csharp -c ./api/generate.json -o ./dist",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "@openapitools/openapi-generator-cli": "^2.30.2"
+  }
+}
