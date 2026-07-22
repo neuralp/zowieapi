@@ -1,0 +1,117 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="3.5" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>9.0.30729</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{1E8E6F5B-74AD-443F-B743-EF29A805CB10}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>ZowieCrestron</RootNamespace>
+    <AssemblyName>ZowieCrestron</AssemblyName>
+    <ProjectTypeGuids>{0B4745B0-194B-4BB6-8E21-E9057CA92500};{4D628B5B-2FBC-4AA6-8C16-197242AEB884};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <PlatformFamilyName>WindowsCE</PlatformFamilyName>
+    <PlatformID>E2BECB1F-8C8C-41ba-B736-9BE7D946A398</PlatformID>
+    <OSVersion>5.0</OSVersion>
+    <DeployDirSuffix>ZowieCrestron</DeployDirSuffix>
+    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
+    <NativePlatformName>Windows CE</NativePlatformName>
+    <FormFactorID>
+    </FormFactorID>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <AllowedReferenceRelatedFileExtensions>.allowedReferenceRelatedFileExtensions</AllowedReferenceRelatedFileExtensions>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE;</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <FileAlignment>512</FileAlignment>
+    <NoStdLib>true</NoStdLib>
+    <NoConfig>true</NoConfig>
+    <GenerateSerializationAssemblies>off</GenerateSerializationAssemblies>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <AllowedReferenceRelatedFileExtensions>.allowedReferenceRelatedFileExtensions</AllowedReferenceRelatedFileExtensions>
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <FileAlignment>512</FileAlignment>
+    <NoStdLib>true</NoStdLib>
+    <NoConfig>true</NoConfig>
+    <GenerateSerializationAssemblies>off</GenerateSerializationAssemblies>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="SimplSharpCustomAttributesInterface, Version=1.0.0.0, Culture=neutral, PublicKeyToken=1099c178b3b54c3b, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>C:\ProgramData\Crestron\SDK\SimplSharpCustomAttributesInterface.dll</HintPath>
+    </Reference>
+    <Reference Include="SimplSharpHelperInterface, Version=1.0.0.0, Culture=neutral, PublicKeyToken=1099c178b3b54c3b, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>C:\ProgramData\Crestron\SDK\SimplSharpHelperInterface.dll</HintPath>
+    </Reference>
+    <Reference Include="SimplSharpReflectionInterface, Version=1.0.5583.25238, Culture=neutral, PublicKeyToken=1099c178b3b54c3b, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>C:\ProgramData\Crestron\SDK\SimplSharpReflectionInterface.dll</HintPath>
+    </Reference>
+    <Reference Include="SimplSharpNewtonsoft, Version=1.0.0.0, Culture=neutral, PublicKeyToken=1099c178b3b54c3b, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>C:\ProgramData\Crestron\SDK\SimplSharpNewtonsoft.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="system.data" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="IZowieRequest.cs" />
+    <Compile Include="ZowieApiConfig.cs" />
+    <Compile Include="ZowieApiClient.cs" />
+    <Compile Include="Models\SuccessResponse.cs" />
+    <Compile Include="Models\ZowieConstants.cs" />
+    <Compile Include="Models\Decoding\StreamplayStatusCode.cs" />
+    <Compile Include="Models\Decoding\StreamplayEntry.cs" />
+    <Compile Include="Models\Decoding\StreamplayGetAllResponse.cs" />
+    <Compile Include="Models\Decoding\GetDecoderStateResponse.cs" />
+    <Compile Include="Models\Decoding\StreamplayAddRequest.cs" />
+    <Compile Include="Models\Decoding\StreamplaySwitchRequest.cs" />
+    <Compile Include="Models\Decoding\StreamplayGetAllRequest.cs" />
+    <Compile Include="Models\Decoding\StreamplayDeleteRequest.cs" />
+    <Compile Include="Models\Decoding\StreamplayModifyRequest.cs" />
+    <Compile Include="Models\Decoding\GetDecoderStateRequest.cs" />
+    <Compile Include="Models\Ndi\NdiSourceEntry.cs" />
+    <Compile Include="Models\Ndi\NdiGetAllResponse.cs" />
+    <Compile Include="Models\Ndi\NdiGetRecvConfigResponse.cs" />
+    <Compile Include="Models\Ndi\NdiFindRequest.cs" />
+    <Compile Include="Models\Ndi\NdiGetAllRequest.cs" />
+    <Compile Include="Models\Ndi\NdiRecvRequest.cs" />
+    <Compile Include="Models\Ndi\NdiCloseRequest.cs" />
+    <Compile Include="Models\Ndi\NdiGetRecvConfigRequest.cs" />
+    <Compile Include="Models\Ndi\NdiSetRecvConfigRequest.cs" />
+    <Compile Include="Models\Recording\StorageDeviceInfo.cs" />
+    <Compile Include="Models\Recording\TimeObject.cs" />
+    <Compile Include="Models\Recording\RecordingTask.cs" />
+    <Compile Include="Models\Recording\GetTaskListResponse.cs" />
+    <Compile Include="Models\Recording\PaginationControl.cs" />
+    <Compile Include="Models\Recording\RecordingFile.cs" />
+    <Compile Include="Models\Recording\GetTaskSaveFilesResponse.cs" />
+    <Compile Include="Models\Recording\GetTaskListRequest.cs" />
+    <Compile Include="Models\Recording\SetTaskInfoRequest.cs" />
+    <Compile Include="Models\Recording\SetTaskEnableRequest.cs" />
+    <Compile Include="Models\Recording\GetTaskSaveFilesRequest.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ZowieMain.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Properties\ControlSystem.cfg" />
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CompactFramework.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>rem  S# preparation will execute after these operations</PostBuildEvent>
+  </PropertyGroup>
+</Project>

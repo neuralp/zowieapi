@@ -7,10 +7,11 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "generate": "openapi-generator-cli generate -i ./api/zowietek-api-v1.5.yaml -g csharp -c ./api/generate.json -o ./dist",
+    "generate": "openapi-generator-cli generate -i ./api/zowietek-api-minimum-v1.5.yaml -g csharp -c ./api/generate.json -o ./dist",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
-    "@openapitools/openapi-generator-cli": "^2.30.2"
+    "@openapitools/openapi-generator-cli": "^2.30.2",
+    "pdfplumber": "^0.0.1-security"
   }
 }

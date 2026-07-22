@@ -17,21 +17,15 @@ http:
       type: query
   body:
     type: json
-    data: "{\r
-
-      \    \"group\": \"streamplay\",\r
-
-      \    \"opt\": \"streamplay_switch\",\r
-
-      \    \"data\": {\r
-
-      \        \"index\": 0,\r
-
-      \        \"switch\": 1\r
-
-      \    }\r
-
-      }"
+    data: |-
+      {
+        "group": "streamplay",
+        "opt": "streamplay_switch",
+        "data": {
+          "switch": 1,
+          "index": 0
+        }
+      }
   auth: inherit
 
 settings:

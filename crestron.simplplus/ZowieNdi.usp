@@ -1,0 +1,303 @@
+#HELP_BEGIN
+  ZowieNdi.usp
+  SIMPL+ Module - ZowieTek NDI Source Management
+  Target : Crestron 4-Series Control Systems
+  Requires: ZowieCrestron.clz added to the SIMPL+ project
+
+  NDI status codes (SelectedStatus output):
+    0 = Not on            1 = Pulling          2 = Stopped
+    3 = No video          4 = Unsupported fmt  5 = No audio
+    6 = Unsupported audio
+
+  Typical usage flow:
+    1. Set IPAddress$ and LoginCheckFlag$, then pulse Initialize_PRESS once.
+    2. Pulse NdiFind_PRESS to trigger network discovery on the device.
+    3. Pulse NdiGetAll_PRESS to fetch the discovered source list;
+       NdiSourceCount updates and SelectedIndex = 0 is reflected automatically.
+    4. Drive SelectedIndex to inspect different sources via Selected* outputs.
+    5. To receive a source: set NdiReceiveName$ to the desired NDI source name
+       then pulse NdiReceive_PRESS.  Use NdiClose_PRESS to stop receiving.
+    6. To filter by NDI group: set NdiGroups$ then pulse NdiSetRecvConfig_PRESS.
+       Pulse NdiGetRecvConfig_PRESS to read the current group configuration back
+       into NdiRecvConfig$.
+#HELP_END
+
+#SYMBOL_NAME "ZowieNdi"
+#CATEGORY "0" // Hidden
+#DEFAULT_VOLATILE
+#ENABLE_STACK_CHECKING
+#ENABLE_TRACE
+
+#INCLUDEPATH "..\crestron\bin\Release"
+#USER_SIMPLSHARP_LIBRARY "ZowieCrestron"
+
+#DEFINE_CONSTANT TRUE  1
+#DEFINE_CONSTANT FALSE 0
+
+/*******************************************************************************************
+  I N P U T S
+*******************************************************************************************/
+
+// Control triggers (digital)
+DIGITAL_INPUT Initialize_PRESS;         // Pulse once with BaseUrl$ and LoginCheckFlag$ set
+DIGITAL_INPUT NdiFind_PRESS;            // Ask device to discover NDI sources on the network
+DIGITAL_INPUT NdiGetAll_PRESS;          // Fetch the current NDI source list
+DIGITAL_INPUT NdiReceive_PRESS;         // Start receiving the source named by NdiReceiveName$
+DIGITAL_INPUT NdiClose_PRESS;           // Stop the active NDI receiver
+DIGITAL_INPUT NdiGetRecvConfig_PRESS;   // Read current receive group config into NdiRecvConfig$
+DIGITAL_INPUT NdiSetRecvConfig_PRESS;   // Apply NdiGroups$ as the new receive configuration
+
+// Index selector (analog)
+ANALOG_INPUT SelectedIndex;         // 0-based index of the NDI source to inspect
+
+// Configuration and data strings
+STRING_INPUT IPAddress$[256];         // Device base URL, e.g. "http://192.168.1.100"
+STRING_INPUT LoginCheckFlag$[32];   // Device login / auth flag value
+STRING_INPUT NdiReceiveName$[128];  // Exact NDI source name to pass to NdiReceive
+STRING_INPUT NdiGroups$[256];       // Group filter string for NdiSetRecvConfig (e.g. "public")
+
+/*******************************************************************************************
+  O U T P U T S
+*******************************************************************************************/
+
+DIGITAL_OUTPUT Initialized;             // Asserts after a successful Initialize
+DIGITAL_OUTPUT Busy;                    // Asserts while an API call is in flight
+DIGITAL_OUTPUT LastOperationSuccess;    // Asserts when the most recent operation succeeded
+
+ANALOG_OUTPUT NdiSourceCount;           // Number of discovered NDI sources in the list
+ANALOG_OUTPUT SelectedStatus;           // Status code of the source at SelectedIndex
+
+STRING_OUTPUT SelectedName$;            // Name of the NDI source at SelectedIndex
+STRING_OUTPUT SelectedUrl$;             // URL of the NDI source at SelectedIndex
+STRING_OUTPUT NdiRecvConfig$;           // Current NDI receive group configuration string
+STRING_OUTPUT StatusMessage$;           // Human-readable result of the last operation
+STRING_OUTPUT NDISourceName$[16];       // Array of NDI source names
+
+/*******************************************************************************************
+  I N T E R N A L   V A R I A B L E S
+*******************************************************************************************/
+
+ZowieMain _zowie;
+INTEGER   _initialized;
+INTEGER   _busy;
+
+/*******************************************************************************************
+  H E L P E R   F U N C T I O N S
+*******************************************************************************************/
+
+FUNCTION RefreshSelectedSource()
+{
+    INTEGER idx;
+    INTEGER count;
+
+    idx   = SelectedIndex;
+    count = _zowie.GetNdiSourceCount();
+
+    IF (idx >= count) RETURN;
+
+    SelectedName$  = _zowie.GetNdiSourceName(idx);
+    SelectedUrl$   = _zowie.GetNdiSourceUrl(idx);
+    SelectedStatus = _zowie.GetNdiSourceStatus(idx);
+}
+
+/*******************************************************************************************
+  E V E N T   H A N D L E R S
+*******************************************************************************************/
+
+PUSH Initialize_PRESS
+{
+	STRING zowieurl[256];
+
+    IF (_initialized = TRUE) RETURN;
+
+	zowieurl="https://" + IPAddress$;
+    _zowie.Initialize(zowieurl, "1");
+    _initialized         = TRUE;
+    Initialized          = TRUE;
+    LastOperationSuccess = TRUE;
+    StatusMessage$       = "Initialized";
+}
+
+PUSH NdiFind_PRESS
+{
+    INTEGER result;
+
+    IF (_initialized = FALSE) RETURN;
+    IF (_busy = TRUE) RETURN;
+
+    _busy = TRUE;
+    Busy  = TRUE;
+
+    result = _zowie.NdiFind();
+
+    IF (result = TRUE)
+    {
+        LastOperationSuccess = TRUE;
+        StatusMessage$       = "NDI discovery triggered";
+    }
+    ELSE
+    {
+        LastOperationSuccess = FALSE;
+        StatusMessage$       = "NDI discovery failed";
+    }
+
+    _busy = FALSE;
+    Busy  = FALSE;
+}
+
+PUSH NdiGetAll_PRESS
+{
+    INTEGER result;
+	INTEGER idx;
+
+    IF (_initialized = FALSE) RETURN;
+    IF (_busy = TRUE) RETURN;
+
+    _busy = TRUE;
+    Busy  = TRUE;
+
+    result         = _zowie.NdiGetAll();
+    NdiSourceCount = _zowie.GetNdiSourceCount();
+
+    IF (result = TRUE)
+    {
+        RefreshSelectedSource();
+        LastOperationSuccess = TRUE;
+        StatusMessage$       = "NDI sources loaded";
+
+		FOR (idx = 0 TO NdiSourceCount-1)
+		{
+			NDISourceName$[idx+1] = _zowie.GetNdiSourceName(idx);
+		}
+    }
+    ELSE
+    {
+        LastOperationSuccess = FALSE;
+        StatusMessage$       = "Failed to load NDI sources";
+    }
+
+    _busy = FALSE;
+    Busy  = FALSE;
+}
+
+PUSH NdiReceive_PRESS
+{
+    INTEGER result;
+
+    IF (_initialized = FALSE) RETURN;
+    IF (_busy = TRUE) RETURN;
+
+    _busy = TRUE;
+    Busy  = TRUE;
+
+    result = _zowie.NdiReceive(NdiReceiveName$);
+
+    IF (result = TRUE)
+    {
+        LastOperationSuccess = TRUE;
+        StatusMessage$       = "NDI receive started";
+    }
+    ELSE
+    {
+        LastOperationSuccess = FALSE;
+        StatusMessage$       = "Failed to start NDI receive";
+    }
+
+    _busy = FALSE;
+    Busy  = FALSE;
+}
+
+PUSH NdiClose_PRESS
+{
+    INTEGER result;
+
+    IF (_initialized = FALSE) RETURN;
+    IF (_busy = TRUE) RETURN;
+
+    _busy = TRUE;
+    Busy  = TRUE;
+
+    result = _zowie.NdiClose();
+
+    IF (result = TRUE)
+    {
+        LastOperationSuccess = TRUE;
+        StatusMessage$       = "NDI receiver closed";
+    }
+    ELSE
+    {
+        LastOperationSuccess = FALSE;
+        StatusMessage$       = "Failed to close NDI receiver";
+    }
+
+    _busy = FALSE;
+    Busy  = FALSE;
+}
+
+PUSH NdiGetRecvConfig_PRESS
+{
+    IF (_initialized = FALSE) RETURN;
+    IF (_busy = TRUE) RETURN;
+
+    _busy = TRUE;
+    Busy  = TRUE;
+
+    NdiRecvConfig$       = _zowie.NdiGetRecvConfig();
+    LastOperationSuccess = TRUE;
+    StatusMessage$       = "NDI config retrieved";
+
+    _busy = FALSE;
+    Busy  = FALSE;
+}
+
+PUSH NdiSetRecvConfig_PRESS
+{
+    INTEGER result;
+
+    IF (_initialized = FALSE) RETURN;
+    IF (_busy = TRUE) RETURN;
+
+    _busy = TRUE;
+    Busy  = TRUE;
+
+    result = _zowie.NdiSetRecvConfig(NdiGroups$);
+
+    IF (result = TRUE)
+    {
+        LastOperationSuccess = TRUE;
+        StatusMessage$       = "NDI config applied";
+    }
+    ELSE
+    {
+        LastOperationSuccess = FALSE;
+        StatusMessage$       = "Failed to apply NDI config";
+    }
+
+    _busy = FALSE;
+    Busy  = FALSE;
+}
+
+CHANGE SelectedIndex
+{
+    IF (_initialized = TRUE)
+        RefreshSelectedSource();
+}
+
+/*******************************************************************************************
+  S T A R T U P
+*******************************************************************************************/
+
+Function Main()
+{
+    _initialized         = FALSE;
+    _busy                = FALSE;
+    Initialized          = FALSE;
+    Busy                 = FALSE;
+    LastOperationSuccess = FALSE;
+    NdiSourceCount       = 0;
+    SelectedStatus       = 0;
+    SelectedName$        = "";
+    SelectedUrl$         = "";
+    NdiRecvConfig$       = "";
+    StatusMessage$       = "Not initialized";
+}

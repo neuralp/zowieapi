@@ -1,0 +1,309 @@
+#HELP_BEGIN
+  ZowieRecord.usp
+  SIMPL+ Module - ZowieTek Recording Task Management
+  Target : Crestron 4-Series Control Systems
+  Requires: ZowieCrestron.clz added to the SIMPL+ project
+
+  RecordSetTaskEnable_Enable values (SetTaskEnable_Enable analog input):
+    0 = Off / Stop        1 = On / Start
+    2 = Pause             3 = Continue
+
+  Task status codes (SelectedStatus output):
+    1 = Recording         2 = Paused
+
+  RecordFormat values (SetTaskRecordFormat input, 65535 = no change):
+    0 = MP4               1 = TS              2 = MOV
+
+  RecordMode values (SetTaskRecordMode input, 65535 = no change):
+    0 = Manual            1 = Auto-start
+
+  LoopMode values (SetTaskLoopMode input, 65535 = no change):
+    Device-defined; consult ZowieTek documentation.
+
+  LimitType values (SetTaskLimitType input, 65535 = no change):
+    0 = Size split        1 = Time split
+
+  SizeLimit values (SetTaskSizeLimit input, 65535 = no change):
+    0 = Auto              1 = 1.5 GB          2 = 3 GB           3 = 4 GB
+
+  TimeLimit values (SetTaskTimeLimit input, 65535 = no change):
+    0 = Auto              1 = 15 min          2 = 30 min         3 = 45 min
+
+  StorageId values (SetTaskStorageId input, 65535 = no change):
+    0 = USB1              1 = SD Card         2 = NAS1
+
+  Typical usage flow:
+    1. Set IPAddress$ and LoginCheckFlag$, then pulse Initialize_PRESS once.
+    2. Pulse RecordGetTaskList_PRESS to populate the task list; TaskCount updates.
+    3. Drive SelectedIndex to inspect tasks; Selected* outputs update automatically.
+       SelectedTaskIndex$ holds the device's internal task ID needed for set operations.
+    4. To start/stop/pause: set SetTaskEnable_Enable, then pulse RecordSetTaskEnable_PRESS.
+    5. To configure: set SetTask* inputs (use 65535 for analog or "" for string to skip
+       a field), then pulse RecordSetTaskInfo_PRESS.
+
+#HELP_END
+
+#SYMBOL_NAME "ZowieRecord"
+#CATEGORY "0" // Hidden
+#DEFAULT_VOLATILE
+#ENABLE_STACK_CHECKING
+#ENABLE_TRACE
+
+#INCLUDEPATH "..\crestron\bin\Release"
+#USER_SIMPLSHARP_LIBRARY "ZowieCrestron"
+
+#DEFINE_CONSTANT TRUE  1
+#DEFINE_CONSTANT FALSE 0
+
+/*******************************************************************************************
+  I N P U T S
+*******************************************************************************************/
+
+// Control triggers (digital)
+DIGITAL_INPUT Initialize_PRESS;             // Pulse once with BaseUrl$ and LoginCheckFlag$ set
+DIGITAL_INPUT RecordGetTaskList_PRESS;      // Fetch / refresh the recording task list
+DIGITAL_INPUT RecordSetTaskInfo_PRESS;      // Apply SetTask* inputs to the selected task
+DIGITAL_INPUT RecordSetTaskEnable_PRESS;    // Apply SetTaskEnable_Enable to the selected task
+
+// Index and parameter selectors (analog)
+ANALOG_INPUT SelectedIndex;             // 0-based list index of the task to inspect / control
+
+// SetTaskInfo parameters — set before pulsing RecordSetTaskInfo_PRESS
+// Use 65535 for any analog field that should not be changed.
+ANALOG_INPUT SetTaskRecordFormat;       // 0=MP4, 1=TS, 2=MOV          (65535 = no change)
+ANALOG_INPUT SetTaskRecordMode;         // 0=Manual, 1=AutoStart        (65535 = no change)
+ANALOG_INPUT SetTaskLoopMode;           // Loop mode (device-defined)   (65535 = no change)
+ANALOG_INPUT SetTaskLimitType;          // 0=SizeSplit, 1=TimeSplit     (65535 = no change)
+ANALOG_INPUT SetTaskSizeLimit;          // 0-3 (see header)             (65535 = no change)
+ANALOG_INPUT SetTaskTimeLimit;          // 0-3 (see header)             (65535 = no change)
+ANALOG_INPUT SetTaskStorageId;          // 0=USB1, 1=SD, 2=NAS1         (65535 = no change)
+ANALOG_INPUT SetTaskStreamId;           // Target stream ID             (65535 = no change)
+
+// SetTaskEnable parameter — set before pulsing RecordSetTaskEnable_PRESS
+ANALOG_INPUT SetTaskEnable_Enable;      // 0=Off, 1=On, 2=Pause, 3=Continue
+
+// Configuration strings
+STRING_INPUT IPAddress$[256];             // Device base URL, e.g. "http://192.168.1.100"
+STRING_INPUT LoginCheckFlag$[32];       // Device login / auth flag value
+STRING_INPUT SetTaskName$[64];          // New task name         (empty = no change)
+STRING_INPUT SetTaskFilePrefix$[64];    // New filename prefix   (empty = no change)
+
+/*******************************************************************************************
+  O U T P U T S
+*******************************************************************************************/
+
+DIGITAL_OUTPUT Initialized;             // Asserts after a successful Initialize
+DIGITAL_OUTPUT Busy;                    // Asserts while an API call is in flight
+DIGITAL_OUTPUT LastOperationSuccess;    // Asserts when the most recent operation succeeded
+DIGITAL_OUTPUT SelectedIsRecording;     // Asserts when the selected task status = 1
+DIGITAL_OUTPUT SelectedIsPaused;        // Asserts when the selected task status = 2
+
+ANALOG_OUTPUT TaskCount;                // Total number of recording tasks in the list
+ANALOG_OUTPUT SelectedStatus;           // Status code of the task at SelectedIndex
+ANALOG_OUTPUT SelectedEnable;           // Enable state of the task at SelectedIndex
+
+STRING_OUTPUT SelectedName$;            // Name of the task at SelectedIndex
+STRING_OUTPUT SelectedTaskIndex$;       // Device task ID used by SetTaskInfo / SetTaskEnable
+STRING_OUTPUT SelectedCurrentFile$;     // Active recording filename for the selected task
+STRING_OUTPUT StatusMessage$;           // Human-readable result of the last operation
+
+/*******************************************************************************************
+  I N T E R N A L   V A R I A B L E S
+*******************************************************************************************/
+
+ZowieMain _zowie;
+INTEGER   _initialized;
+INTEGER   _busy;
+STRING    _cachedTaskIndex[64];         // Device task ID for the currently selected entry
+
+/*******************************************************************************************
+  H E L P E R   F U N C T I O N S
+*******************************************************************************************/
+
+FUNCTION RefreshSelectedTask()
+{
+    INTEGER idx;
+    INTEGER count;
+    INTEGER status;
+
+    idx   = SelectedIndex;
+    count = _zowie.GetRecordTaskCount();
+
+    IF (idx >= count) RETURN;
+
+    _cachedTaskIndex     = _zowie.GetRecordTaskIndex(idx);
+    SelectedName$        = _zowie.GetRecordTaskName(idx);
+    SelectedTaskIndex$   = _cachedTaskIndex;
+    SelectedEnable       = _zowie.GetRecordTaskEnable(idx);
+    SelectedCurrentFile$ = _zowie.GetRecordTaskCurrentFile(idx);
+
+    status         = _zowie.GetRecordTaskStatus(idx);
+    SelectedStatus = status;
+
+    IF (status = 1)
+    {
+        SelectedIsRecording = TRUE;
+        SelectedIsPaused    = FALSE;
+    }
+    ELSE IF (status = 2)
+    {
+        SelectedIsRecording = FALSE;
+        SelectedIsPaused    = TRUE;
+    }
+    ELSE
+    {
+        SelectedIsRecording = FALSE;
+        SelectedIsPaused    = FALSE;
+    }
+}
+
+FUNCTION RecordGetTaskList()
+{
+    INTEGER result;
+
+    IF (_initialized = FALSE) RETURN;
+    IF (_busy = TRUE) RETURN;
+
+    _busy = TRUE;
+    Busy  = TRUE;
+
+    result    = _zowie.RecordGetTaskList();
+    TaskCount = _zowie.GetRecordTaskCount();
+
+    IF (result = TRUE)
+    {
+        RefreshSelectedTask();
+        LastOperationSuccess = TRUE;
+        StatusMessage$       = "Tasks loaded";
+    }
+    ELSE
+    {
+        LastOperationSuccess = FALSE;
+        StatusMessage$       = "Failed to load tasks";
+    }
+
+    _busy = FALSE;
+    Busy  = FALSE;
+}
+
+/*******************************************************************************************
+  E V E N T   H A N D L E R S
+*******************************************************************************************/
+
+PUSH Initialize_PRESS
+{
+	STRING zowieurl[256];
+
+    IF (_initialized = TRUE) RETURN;
+
+	zowieurl="https://" + IPAddress$;
+    _zowie.Initialize(zowieurl, "1");
+    _initialized         = TRUE;
+    Initialized          = TRUE;
+    LastOperationSuccess = TRUE;
+    StatusMessage$       = "Initialized";
+}
+
+PUSH RecordGetTaskList_PRESS
+{
+	RecordGetTaskList();
+}
+
+PUSH RecordSetTaskInfo_PRESS
+{
+    INTEGER result;
+
+    IF (_initialized = FALSE) RETURN;
+    IF (_busy = TRUE) RETURN;
+    IF (LEN(_cachedTaskIndex) = 0) RETURN;
+
+    _busy = TRUE;
+    Busy  = TRUE;
+
+    result = _zowie.RecordSetTaskInfo(
+        _cachedTaskIndex,
+        SetTaskName$,
+        SetTaskFilePrefix$,
+        SetTaskRecordFormat,
+        SetTaskRecordMode,
+        SetTaskLoopMode,
+        SetTaskLimitType,
+        SetTaskSizeLimit,
+        SetTaskTimeLimit,
+        SetTaskStorageId,
+        SetTaskStreamId
+    );
+
+    IF (result = TRUE)
+    {
+        LastOperationSuccess = TRUE;
+        StatusMessage$       = "Task info updated";
+    }
+    ELSE
+    {
+        LastOperationSuccess = FALSE;
+        StatusMessage$       = "Failed to update task info";
+    }
+
+    _busy = FALSE;
+    Busy  = FALSE;
+}
+
+PUSH RecordSetTaskEnable_PRESS
+{
+    INTEGER result;
+
+    IF (_initialized = FALSE) RETURN;
+    IF (_busy = TRUE) RETURN;
+    IF (LEN(_cachedTaskIndex) = 0) RETURN;
+
+    _busy = TRUE;
+    Busy  = TRUE;
+
+    result = _zowie.RecordSetTaskEnable(_cachedTaskIndex, SetTaskEnable_Enable);
+
+    IF (result = TRUE)
+    {
+        LastOperationSuccess = TRUE;
+        StatusMessage$       = "Task enable state set";
+    	_busy = FALSE;
+    	Busy  = FALSE;
+		RecordGetTaskList();
+    }
+    ELSE
+    {
+        LastOperationSuccess = FALSE;
+        StatusMessage$       = "Failed to set task enable";
+	    _busy = FALSE;
+    	Busy  = FALSE;
+    }
+}
+
+CHANGE SelectedIndex
+{
+    IF (_initialized = TRUE)
+        RefreshSelectedTask();
+}
+
+/*******************************************************************************************
+  S T A R T U P
+*******************************************************************************************/
+
+Function Main()
+{
+    _initialized         = FALSE;
+    _busy                = FALSE;
+    _cachedTaskIndex     = "";
+    Initialized          = FALSE;
+    Busy                 = FALSE;
+    LastOperationSuccess = FALSE;
+    SelectedIsRecording  = FALSE;
+    SelectedIsPaused     = FALSE;
+    TaskCount            = 0;
+    SelectedStatus       = 0;
+    SelectedEnable       = 0;
+    SelectedName$        = "";
+    SelectedTaskIndex$   = "";
+    SelectedCurrentFile$ = "";
+    StatusMessage$       = "Not initialized";
+}

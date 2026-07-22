@@ -1,5 +1,6 @@
 {
     "disallowAdditionalPropertiesIfNotPresent": false,
-    "library": "httpclient",
-    "targetFramework": "net8.0"
+    "library": "generichost",
+    "targetFramework": "net8.0",
+    "useOneOfDiscriminatorLookup": true
 }

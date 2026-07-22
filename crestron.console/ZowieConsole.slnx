@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="ZowieConsole.csproj" Id="a3f1d2e4-8b5c-4f7a-9e0d-2c6b1a3f5e8d" />
+  <Project Path="..\crestron\ZowieCrestron.csproj" Id="1e8e6f5b-74ad-443f-b743-ef29a805cb10" />
+</Solution>

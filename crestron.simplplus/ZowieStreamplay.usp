@@ -1,0 +1,326 @@
+#HELP_BEGIN
+  ZowieStreamplay.usp
+  SIMPL+ Module - ZowieTek Streamplay / Decoder Control
+  Target : Crestron 4-Series Control Systems
+  Requires: ZowieCrestron.clz added to the SIMPL+ project
+
+  Streamplay status codes (SelectedStatus output):
+    0 = Not on            1 = Pulling          2 = Stopped
+    3 = No video          4 = Unsupported fmt  5 = No audio
+    6 = Unsupported audio
+
+  Stream type values (AddStreamType / ModStreamType inputs):
+    0 = Local             1 = Live (RTSP / network)
+
+  Decoder state (DecoderState output):
+    65535 (0xFFFF) = error reading state
+
+  Indexed data pattern:
+    1. Pulse StreamplayGetAll_PRESS to populate the internal list.
+    2. Drive SelectedIndex (0-based) to choose which entry to inspect;
+       the Selected* outputs update automatically.
+    3. For Add: fill Add* inputs then pulse StreamplayAdd_PRESS.
+    4. For Modify: select the entry via SelectedIndex, fill Mod* inputs
+       (leave ModName$/ModUrl$ empty or ModSwitch/ModStreamType at 65535
+       to leave that field unchanged), then pulse StreamplayModify_PRESS.
+    5. For SwitchSource: set SwitchToSwitch + SwitchToIndex then pulse
+       StreamplaySwitchSource_PRESS.
+#HELP_END
+
+#SYMBOL_NAME "ZowieStreamplay"
+#CATEGORY "0" // Hidden
+#DEFAULT_VOLATILE
+#ENABLE_STACK_CHECKING
+#ENABLE_TRACE
+
+#INCLUDEPATH "..\crestron\bin\Release"
+#USER_SIMPLSHARP_LIBRARY "ZowieCrestron"
+
+#DEFINE_CONSTANT TRUE  1
+#DEFINE_CONSTANT FALSE 0
+
+/*******************************************************************************************
+  I N P U T S
+*******************************************************************************************/
+
+// Control triggers (digital)
+DIGITAL_INPUT Initialize_PRESS;             // Pulse once with BaseUrl$ and LoginCheckFlag$ set
+DIGITAL_INPUT StreamplayGetAll_PRESS;       // Fetch / refresh the stream list
+DIGITAL_INPUT StreamplayAdd_PRESS;          // Add a new stream using Add* inputs
+DIGITAL_INPUT StreamplayDelete_PRESS;       // Delete the entry at SelectedIndex
+DIGITAL_INPUT StreamplayModify_PRESS;       // Modify the entry at SelectedIndex using Mod* inputs
+DIGITAL_INPUT StreamplaySwitchSource_PRESS; // Switch decoder to SwitchToIndex on SwitchToSwitch
+DIGITAL_INPUT GetDecoderState_PRESS;        // Query current decoder hardware state
+
+// Index / parameter selectors (analog)
+ANALOG_INPUT SelectedIndex;             // 0-based index: entry to query, delete, or modify
+ANALOG_INPUT AddSwitch;                 // Switch ID for StreamplayAdd
+ANALOG_INPUT AddStreamType;             // Stream type for StreamplayAdd  (0=local, 1=live)
+ANALOG_INPUT ModSwitch;                 // New switch ID  for Modify      (65535 = no change)
+ANALOG_INPUT ModStreamType;             // New stream type for Modify     (65535 = no change)
+ANALOG_INPUT SwitchToSwitch;            // Switch ID for StreamplaySwitchSource
+ANALOG_INPUT SwitchToIndex;             // Stream index for StreamplaySwitchSource
+
+// Configuration and data strings
+STRING_INPUT IPAddress$[256];             // Device base URL, e.g. "http://192.168.1.100"
+STRING_INPUT LoginCheckFlag$[32];       // Device login / auth flag value
+STRING_INPUT AddName$[64];              // Name for StreamplayAdd
+STRING_INPUT AddUrl$[256];              // Stream URL for StreamplayAdd
+STRING_INPUT ModName$[64];              // New name for Modify  (empty string = no change)
+STRING_INPUT ModUrl$[256];              // New URL for Modify   (empty string = no change)
+
+/*******************************************************************************************
+  O U T P U T S
+*******************************************************************************************/
+
+DIGITAL_OUTPUT Initialized;             // Asserts after a successful Initialize
+DIGITAL_OUTPUT Busy;                    // Asserts while an API call is in flight
+DIGITAL_OUTPUT LastOperationSuccess;    // Asserts when the most recent operation succeeded
+
+ANALOG_OUTPUT StreamplayCount;          // Number of configured stream entries
+ANALOG_OUTPUT SelectedSwitch;           // Switch ID of the entry at SelectedIndex
+ANALOG_OUTPUT SelectedStreamType;       // Stream type of the entry at SelectedIndex
+ANALOG_OUTPUT SelectedStatus;           // Status code of the entry at SelectedIndex
+ANALOG_OUTPUT DecoderState;             // Current decoder hardware state value
+
+STRING_OUTPUT SelectedName$;            // Name of the entry at SelectedIndex
+STRING_OUTPUT SelectedUrl$;             // URL of the entry at SelectedIndex
+STRING_OUTPUT StatusMessage$;           // Human-readable result of the last operation
+STRING_OUTPUT StreamName$[16];          // Array of stream names for display or selection
+
+/*******************************************************************************************
+  I N T E R N A L   V A R I A B L E S
+*******************************************************************************************/
+
+ZowieMain _zowie;
+INTEGER   _initialized;
+INTEGER   _busy;
+
+/*******************************************************************************************
+  H E L P E R   F U N C T I O N S
+*******************************************************************************************/
+
+FUNCTION RefreshSelectedEntry()
+{
+    INTEGER idx;
+    INTEGER count;
+    
+    idx   = SelectedIndex;
+    count = _zowie.GetStreamplayCount();
+    
+    IF (idx >= count) RETURN;
+
+    SelectedName$      = _zowie.GetStreamplayName(idx);
+    SelectedUrl$       = _zowie.GetStreamplayUrl(idx);
+    SelectedSwitch     = _zowie.GetStreamplaySwitch(idx);
+    SelectedStreamType = _zowie.GetStreamplayStreamType(idx);
+    SelectedStatus     = _zowie.GetStreamplayStatus(idx);
+}
+
+/*******************************************************************************************
+  E V E N T   H A N D L E R S
+*******************************************************************************************/
+
+PUSH Initialize_PRESS
+{
+	STRING zowieurl[256];
+
+    IF (_initialized = TRUE) RETURN;
+
+	zowieurl="https://" + IPAddress$;
+    _zowie.Initialize(zowieurl, "1");
+    _initialized         = TRUE;
+    Initialized          = TRUE;
+    LastOperationSuccess = TRUE;
+    StatusMessage$       = "Initialized";
+}
+
+PUSH StreamplayGetAll_PRESS
+{
+    INTEGER result;
+	INTEGER idx;
+
+    IF (_initialized = FALSE) RETURN;
+    IF (_busy = TRUE) RETURN;
+
+    _busy = TRUE;
+    Busy  = TRUE;
+
+    result          = _zowie.StreamplayGetAll();
+    StreamplayCount = _zowie.GetStreamplayCount();
+
+    IF (result = TRUE)
+    {
+        RefreshSelectedEntry();
+        LastOperationSuccess = TRUE;
+        StatusMessage$       = "Streams loaded";
+
+		FOR (idx = 0 TO StreamplayCount-1)
+		{
+			StreamName$[idx+1] = _zowie.GetStreamplayName(idx);
+		}
+    }
+    ELSE
+    {
+        LastOperationSuccess = FALSE;
+        StatusMessage$       = "Failed to load streams";
+    }
+
+    _busy = FALSE;
+    Busy  = FALSE;
+}
+
+PUSH StreamplayAdd_PRESS
+{
+    INTEGER result;
+
+    IF (_initialized = FALSE) RETURN;
+    IF (_busy = TRUE) RETURN;
+
+    _busy = TRUE;
+    Busy  = TRUE;
+
+    result = _zowie.StreamplayAdd(AddSwitch, AddName$, AddStreamType, AddUrl$);
+
+    IF (result = TRUE)
+    {
+        LastOperationSuccess = TRUE;
+        StatusMessage$       = "Stream added";
+    }
+    ELSE
+    {
+        LastOperationSuccess = FALSE;
+        StatusMessage$       = "Failed to add stream";
+    }
+
+    _busy = FALSE;
+    Busy  = FALSE;
+}
+
+PUSH StreamplayDelete_PRESS
+{
+    INTEGER result;
+
+    IF (_initialized = FALSE) RETURN;
+    IF (_busy = TRUE) RETURN;
+
+    _busy = TRUE;
+    Busy  = TRUE;
+
+    result = _zowie.StreamplayDelete(SelectedIndex);
+
+    IF (result = TRUE)
+    {
+        LastOperationSuccess = TRUE;
+        StatusMessage$       = "Stream deleted";
+    }
+    ELSE
+    {
+        LastOperationSuccess = FALSE;
+        StatusMessage$       = "Failed to delete stream";
+    }
+
+    _busy = FALSE;
+    Busy  = FALSE;
+}
+
+PUSH StreamplayModify_PRESS
+{
+    INTEGER result;
+
+    IF (_initialized = FALSE) RETURN;
+    IF (_busy = TRUE) RETURN;
+
+    _busy = TRUE;
+    Busy  = TRUE;
+
+    result = _zowie.StreamplayModify(SelectedIndex, ModSwitch, ModName$, ModStreamType, ModUrl$);
+
+    IF (result = TRUE)
+    {
+        LastOperationSuccess = TRUE;
+        StatusMessage$       = "Stream modified";
+    }
+    ELSE
+    {
+        LastOperationSuccess = FALSE;
+        StatusMessage$       = "Failed to modify stream";
+    }
+
+    _busy = FALSE;
+    Busy  = FALSE;
+}
+
+PUSH StreamplaySwitchSource_PRESS
+{
+    INTEGER result;
+
+    IF (_initialized = FALSE) RETURN;
+    IF (_busy = TRUE) RETURN;
+
+    _busy = TRUE;
+    Busy  = TRUE;
+
+    result = _zowie.StreamplaySwitchSource(SwitchToSwitch, SwitchToIndex);
+
+    IF (result = TRUE)
+    {
+        LastOperationSuccess = TRUE;
+        StatusMessage$       = "Source switched";
+    }
+    ELSE
+    {
+        LastOperationSuccess = FALSE;
+        StatusMessage$       = "Failed to switch source";
+    }
+
+    _busy = FALSE;
+    Busy  = FALSE;
+}
+
+PUSH GetDecoderState_PRESS
+{
+    INTEGER state;
+
+    IF (_initialized = FALSE) RETURN;
+    IF (_busy = TRUE) RETURN;
+
+    _busy = TRUE;
+    Busy  = TRUE;
+
+    state        = _zowie.GetDecoderState();
+    DecoderState = state;
+
+    LastOperationSuccess = TRUE;
+    StatusMessage$       = "Decoder state retrieved";
+
+    _busy = FALSE;
+    Busy  = FALSE;
+}
+
+CHANGE SelectedIndex
+{
+    IF (_initialized = TRUE)
+        RefreshSelectedEntry();
+}
+
+/*******************************************************************************************
+  S T A R T U P
+*******************************************************************************************/
+
+Function Main()
+{
+    _initialized         = FALSE;
+    _busy                = FALSE;
+    Initialized          = FALSE;
+    Busy                 = FALSE;
+    LastOperationSuccess = FALSE;
+    StreamplayCount      = 0;
+    SelectedSwitch       = 0;
+    SelectedStreamType   = 0;
+    SelectedStatus       = 0;
+    DecoderState         = 0;
+    SelectedName$        = "";
+    SelectedUrl$         = "";
+    StatusMessage$       = "Not initialized";
+}

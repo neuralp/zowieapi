@@ -1,20 +1,1163 @@
 openapi: 3.1.0
 info:
-  title: zowietek-api-minimum-v1.5
-  version: '1.0'
-  summary: Minimum required for Crestron control of the ZowieTEK devices.
+  title: ZowieTek Device API — Minimum (Stream Decoding & Recording)
+  version: '1.5'
+  summary: Streamplay (decoding) and record endpoints for Crestron control of ZowieTek devices.
   contact:
     name: 'Nicholas Pepper, CTS-D'
+  description: Minimal API for the ZowieTek devices for basic control.  This is ONLY for the features that A2 will be using in their Crestron programming.  Start/stop stream and start/stop/pause/resume recording.
 servers:
-  - url: 'https://localhost/'
-    description: ''
-paths: {}
+  - url: 'http://{host}'
+    description: Device IP address
+    variables:
+      host:
+        default: 192.168.1.1
+        description: IP address of the ZowieTek device
+security:
+  - queryParameter: []
+tags:
+  - name: Decoding
+  - name: Recording
+paths:
+  /streamplay:
+    post:
+      summary: ''
+      operationId: post-streamplay
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - $ref: '#/components/schemas/NdiGetAllResponse'
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - setinfo
+              - getinfo
+          in: query
+          name: option
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/StreamplaySwitchRequest'
+                - $ref: '#/components/schemas/NdiRecvRequest'
+                - $ref: '#/components/schemas/NdiFindRequest'
+                - $ref: '#/components/schemas/NdiGetAllRequest'
+      tags:
+        - Decoding
+      description: Streaming enpoint to get and set streams
+  /record:
+    post:
+      summary: ''
+      operationId: post-record
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - $ref: '#/components/schemas/GetTaskListResponse'
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - getinfo
+              - setinfo
+          in: header
+          name: option
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/SetTaskEnableRequest'
+                - $ref: '#/components/schemas/GetTaskListRequest'
+      description: Control recording.
 components:
-  schemas: {}
+  parameters:
+    OptionParam:
+      name: option
+      in: query
+      required: true
+      schema:
+        type: string
+        enum:
+          - getinfo
+          - setinfo
+      description: 'getinfo to retrieve data, setinfo to modify data'
   securitySchemes:
     queryParameter:
       name: login_check_flag
       type: apiKey
       in: query
-security:
-  - queryParameter: []
+  schemas:
+    SuccessResponse:
+      type: object
+      description: |
+        Returned by all write operations and simple queries.
+        Note: `rsp` varies by endpoint family — `"success"` (streamplay add/del/modify),
+        `"succeed"` (record ops), `"succeed!!!"` (NDI ops).
+      properties:
+        status:
+          type: string
+          description: Status code — 00000 = success
+          example: '00000'
+        rsp:
+          type: string
+          example: succeed
+      example:
+        status: '00000'
+        rsp: succeed
+    StreamplayStatusCode:
+      type: integer
+      enum:
+        - 0
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+      description: |
+        0 = Not turned on
+        1 = Pulling stream
+        2 = Pulling stream stopped
+        3 = Pulling stream (no video)
+        4 = Pulling stream (video format unsupported)
+        5 = Pulling stream (no audio)
+        6 = Pulling stream (audio format unsupported)
+    StorageDeviceInfo:
+      type: object
+      description: Storage device status and capacity. Present in recording task and file list responses.
+      properties:
+        name:
+          type: string
+          description: Storage device label
+          example: USB1
+        index:
+          type: integer
+          description: '0=sdcard, 1=USB, 3=NAS'
+          example: 1
+        mount_path:
+          type: string
+          example: /mnt/USB1
+        status:
+          type: integer
+          enum:
+            - 0
+            - 1
+            - 2
+            - 3
+            - 4
+          description: '0=not mounted, 1=mounted, 2=full, 3=read-only, 4=mount failed'
+          example: 1
+        totalspace:
+          type: integer
+          description: Total capacity in MB
+          example: 29323
+        freespace:
+          type: integer
+          description: Free space in MB
+          example: 28553
+        usagespace:
+          type: integer
+          description: Used space in MB
+          example: 770
+        file_system:
+          type: integer
+          enum:
+            - 0
+            - 1
+            - 2
+            - 3
+            - 4
+            - 5
+          description: '0=unknown, 1=FAT32, 2=exFAT, 3=NTFS, 4=CIFS, 5=NFS'
+          example: 1
+        speed_test_status:
+          type: integer
+          description: Present in file-list response only
+        write_speed:
+          type: number
+          description: Write speed in MB/s — present in file-list response only
+        read_speed:
+          type: number
+          description: Read speed in MB/s — present in file-list response only
+    TimeObject:
+      type: object
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        day:
+          type: integer
+        hour:
+          type: integer
+        minute:
+          type: integer
+        second:
+          type: integer
+      example:
+        year: 2025
+        month: 6
+        day: 9
+        hour: 17
+        minute: 52
+        second: 58
+    StreamplayEntry:
+      type: object
+      description: A single configured decoding URL entry.
+      properties:
+        index:
+          type: integer
+          description: Entry index used for delete/modify operations
+        switch:
+          type: integer
+          enum:
+            - 0
+            - 1
+          description: '0=off, 1=on'
+        name:
+          type: string
+          description: URL alias
+        streamtype:
+          type: integer
+          enum:
+            - 0
+            - 1
+          description: '0=local, 1=live'
+        url:
+          type: string
+          description: Decoding URL (RTSP/RTMP/SRT)
+        streamplay_status:
+          $ref: '#/components/schemas/StreamplayStatusCode'
+        bandwidth:
+          type: integer
+          description: Current decode bitrate
+        framerate:
+          type: number
+          description: Current decode frame rate
+        width:
+          type: integer
+          description: Decoded video width in pixels
+        height:
+          type: integer
+          description: Decoded video height in pixels
+      example:
+        index: 0
+        switch: 0
+        name: camera-1
+        streamtype: 0
+        url: 'rtsp://192.168.1.205/1'
+        streamplay_status: 0
+        bandwidth: 0
+        framerate: 0
+        width: 0
+        height: 0
+    StreamplayGetAllResponse:
+      type: object
+      description: Response for streamplay_get_all — all configured decoding URL entries.
+      properties:
+        rsp:
+          type: string
+          example: succeed
+        status:
+          type: string
+          example: '00000'
+        streamplay:
+          type: array
+          items:
+            $ref: '#/components/schemas/StreamplayEntry'
+      example:
+        rsp: succeed
+        status: '00000'
+        streamplay:
+          - index: 0
+            switch: 0
+            name: '111'
+            streamtype: 0
+            url: 'rtsp://192.168.1.205/1'
+            streamplay_status: 0
+            bandwidth: 0
+            framerate: 0
+            width: 0
+            height: 0
+          - index: 1
+            switch: 0
+            name: '22'
+            streamtype: 1
+            url: 'rtmp://live.livevbond.com/test4/zowietek?auth_key=1629073289-0-0-d9bb438e37df25c2a008c739cfaacc9c'
+            streamplay_status: 0
+            bandwidth: 0
+            framerate: 0
+            width: 0
+            height: 0
+    GetDecoderStateResponse:
+      type: object
+      description: Response for get_decoder_state — whether any decoding stream is currently active.
+      properties:
+        rsp:
+          type: string
+          example: succeed
+        status:
+          type: string
+          example: '00000'
+        data:
+          type: object
+          properties:
+            decoder_state:
+              type: integer
+              enum:
+                - 0
+                - 1
+              description: '0=no decoding stream active, 1=decoding stream active'
+      example:
+        rsp: succeed
+        status: '00000'
+        data:
+          decoder_state: 0
+    NdiSourceEntry:
+      type: object
+      description: A single NDI source discovered on the LAN.
+      properties:
+        index:
+          type: integer
+        name:
+          type: string
+          description: NDI source name — use this value in ndi_recv requests
+        url:
+          type: string
+          description: NDI source address and port
+        streamplay_status:
+          $ref: '#/components/schemas/StreamplayStatusCode'
+        bandwidth:
+          type: integer
+        framerate:
+          type: number
+        width:
+          type: integer
+        height:
+          type: integer
+      example:
+        index: 0
+        name: 'HD CAMERA (NDI HB HX,192.168.1.205)'
+        url: '192.168.1.205:5961'
+        streamplay_status: 0
+        bandwidth: 0
+        framerate: 0
+        width: 0
+        height: 0
+    NdiGetAllResponse:
+      type: object
+      description: Response for ndi_get_all — all NDI sources discovered since the last ndi_find call.
+      properties:
+        rsp:
+          type: string
+          example: succeed!!!
+        status:
+          type: string
+          example: '00000'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/NdiSourceEntry'
+      example:
+        rsp: succeed!!!
+        status: '00000'
+        data:
+          - index: 0
+            name: 'HD CAMERA (NDI HB HX,192.168.1.205)'
+            url: '192.168.1.205:5961'
+            streamplay_status: 0
+            bandwidth: 0
+            framerate: 0
+            width: 0
+            height: 0
+          - index: 1
+            name: NDI_HX (NDI-901233)
+            url: '192.168.1.233:5961'
+            streamplay_status: 0
+            bandwidth: 0
+            framerate: 0
+            width: 0
+            height: 0
+    NdiGetRecvConfigResponse:
+      type: object
+      description: Response for ndi_get_recv_config — current NDI receive group.
+      properties:
+        rsp:
+          type: string
+          example: succeed!!!
+        status:
+          type: string
+          example: '00000'
+        data:
+          type: object
+          properties:
+            groups:
+              type: string
+              description: NDI group name for ZowieBox decode mode
+              example: Public
+      example:
+        rsp: succeed!!!
+        status: '00000'
+        data:
+          groups: Public
+    RecordingTask:
+      type: object
+      description: A single recording task entry corresponding to one storage device.
+      properties:
+        index:
+          type: string
+          enum:
+            - usb1_0
+            - sdcard_0
+            - nas1_0
+          description: Storage device identifier — used in set_task_info and set_task_enable
+        file_name_prefix:
+          type: string
+          description: Prefix applied to recorded filenames
+        name:
+          type: string
+          description: Human-readable task name
+        record_format:
+          type: integer
+          enum:
+            - 0
+            - 1
+            - 2
+          description: '0=mp4, 1=ts, 2=mov'
+        record_mode:
+          type: integer
+          enum:
+            - 0
+            - 1
+          description: '0=manual, 1=auto start'
+        record_loop_mode:
+          type: integer
+          enum:
+            - 0
+            - 1
+          description: '0=off, 1=loop (overwrite oldest when full)'
+        limit_type:
+          type: integer
+          enum:
+            - 0
+            - 1
+          description: '0=size split, 1=time split'
+        size_limit:
+          type: integer
+          enum:
+            - 0
+            - 1
+            - 2
+            - 3
+          description: '0=auto, 1=1.5G, 2=3G, 3=4G'
+        time_limit:
+          type: integer
+          enum:
+            - 0
+            - 1
+            - 2
+            - 3
+          description: '0=auto, 1=15min, 2=30min, 3=45min'
+        enable:
+          type: integer
+          enum:
+            - 0
+            - 1
+            - 2
+            - 3
+          description: '0=off, 1=on, 2=paused, 3=continuing'
+        storage_id:
+          type: integer
+          description: '0=sdcard, 1=USB, 3=NAS'
+        stream_id:
+          type: integer
+        audio_stream_id:
+          type: integer
+        status:
+          type: integer
+          enum:
+            - 0
+            - 1
+            - 2
+            - 3
+            - 4
+            - 5
+          description: '0=not recording, 1=recording, 2=paused, 3=storage full, 4=not mounted, 5=no signal'
+        storageInfo:
+          $ref: '#/components/schemas/StorageDeviceInfo'
+        curr_file_name:
+          type: string
+          description: Filename currently being written — empty string when not recording
+        duration:
+          type: integer
+          description: Current recording session duration in seconds
+      example:
+        index: usb1_0
+        file_name_prefix: usb1_0
+        name: usb1
+        record_format: 0
+        record_mode: 0
+        record_loop_mode: 0
+        limit_type: 0
+        size_limit: 0
+        time_limit: 0
+        enable: 0
+        storage_id: 1
+        stream_id: 0
+        audio_stream_id: 0
+        status: 5
+        storageInfo:
+          name: USB1
+          index: 1
+          mount_path: /mnt/USB1
+          status: 1
+          totalspace: 29323
+          freespace: 28553
+          usagespace: 770
+          file_system: 1
+        curr_file_name: ''
+        duration: 0
+    GetTaskListResponse:
+      type: object
+      description: Response for get_task_list — all recording tasks and their current state.
+      properties:
+        rsp:
+          type: string
+          example: succeed
+        status:
+          type: string
+          example: '00000'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecordingTask'
+      example:
+        rsp: succeed
+        status: '00000'
+        data:
+          - index: usb1_0
+            file_name_prefix: usb1_0
+            name: usb1
+            record_format: 0
+            record_mode: 0
+            record_loop_mode: 0
+            limit_type: 0
+            size_limit: 0
+            time_limit: 0
+            enable: 0
+            storage_id: 1
+            stream_id: 0
+            audio_stream_id: 0
+            status: 5
+            storageInfo:
+              name: USB1
+              index: 1
+              mount_path: /mnt/USB1
+              status: 1
+              totalspace: 29323
+              freespace: 28553
+              usagespace: 770
+              file_system: 1
+            curr_file_name: ''
+            duration: 0
+          - index: sdcard_0
+            file_name_prefix: sdcard_0
+            name: sdcard
+            record_format: 0
+            record_mode: 0
+            record_loop_mode: 0
+            limit_type: 0
+            size_limit: 0
+            time_limit: 0
+            enable: 0
+            storage_id: 0
+            stream_id: 0
+            audio_stream_id: 0
+            status: 5
+            storageInfo:
+              name: sdcard
+              index: 0
+              mount_path: /mnt/sdcard
+              status: 1
+              totalspace: 30417
+              freespace: 8182
+              usagespace: 22235
+              file_system: 1
+            curr_file_name: ''
+            duration: 0
+    PaginationControl:
+      type: object
+      description: Pagination state returned with file list responses.
+      properties:
+        firstPage:
+          type: integer
+        currentPage:
+          type: integer
+        lastPage:
+          type: integer
+        default_Record_Num:
+          type: integer
+          description: Page size
+        sum:
+          type: integer
+          description: Total number of files across all pages
+        frontPage:
+          type: integer
+        nextPage:
+          type: integer
+      example:
+        firstPage: 1
+        currentPage: 1
+        lastPage: 1
+        default_Record_Num: 10
+        sum: 1
+        frontPage: 0
+        nextPage: 1
+    RecordingFile:
+      type: object
+      description: A single recorded video file entry.
+      properties:
+        task_id:
+          type: string
+          description: Storage device identifier the file was recorded to
+          example: sdcard_0
+        start_time:
+          type: string
+          description: Recording start time as a formatted string
+          example: '2025-06-09 17:52:58'
+        end_time:
+          type: string
+          example: '2025-06-09 17:53:03'
+        filename:
+          type: string
+          example: sdcard_0_20250609175257.mp4
+        file_url:
+          type: string
+          description: Full path to the file on the storage device
+          example: /mnt/sdcard/DCIM/MediDVR/case_1/sdcard_0_20250609175257.mp4
+        file_size:
+          type: integer
+          description: File size in MB
+          example: 11
+        duration:
+          type: integer
+          description: Recording duration in seconds
+          example: 5
+        case_num:
+          type: integer
+          description: Associated patient case number (MediDVR only)
+        start_time_obj:
+          $ref: '#/components/schemas/TimeObject'
+        end_time_obj:
+          $ref: '#/components/schemas/TimeObject'
+    GetTaskSaveFilesResponse:
+      type: object
+      description: Response for get_task_savefiles_page — paginated list of recorded video files.
+      properties:
+        rsp:
+          type: string
+          example: succeed
+        status:
+          type: string
+          example: '00000'
+        data:
+          type: object
+          properties:
+            storage_info:
+              $ref: '#/components/schemas/StorageDeviceInfo'
+            control:
+              $ref: '#/components/schemas/PaginationControl'
+            storage_files_size:
+              type: integer
+              description: Number of files on the current page
+            storage_files:
+              type: array
+              items:
+                $ref: '#/components/schemas/RecordingFile'
+      example:
+        rsp: succeed
+        status: '00000'
+        data:
+          storage_info:
+            name: TF
+            index: 0
+            mount_path: /mnt/sdcard
+            status: 1
+            totalspace: 30430
+            freespace: 21368
+            usagespace: 9062
+            file_system: 2
+            speed_test_status: 0
+            write_speed: 0
+            read_speed: 0
+          control:
+            firstPage: 1
+            currentPage: 1
+            lastPage: 1
+            default_Record_Num: 10
+            sum: 1
+            frontPage: 0
+            nextPage: 1
+          storage_files_size: 1
+          storage_files:
+            - task_id: sdcard_0
+              start_time: '2025-06-09 17:52:58'
+              end_time: '2025-06-09 17:53:03'
+              filename: sdcard_0_20250609175257.mp4
+              file_url: /mnt/sdcard/DCIM/MediDVR/case_1/sdcard_0_20250609175257.mp4
+              file_size: 11
+              duration: 5
+              case_num: 1
+              start_time_obj:
+                year: 2025
+                month: 6
+                day: 9
+                hour: 17
+                minute: 52
+                second: 58
+              end_time_obj:
+                year: 2025
+                month: 6
+                day: 9
+                hour: 17
+                minute: 53
+                second: 3
+    StreamplayAddRequest:
+      type: object
+      description: Add a decoding URL (ZowieBox). option=setinfo
+      properties:
+        group:
+          type: string
+          enum:
+            - streamplay
+        opt:
+          type: string
+          enum:
+            - streamplay_add
+        data:
+          type: object
+          properties:
+            switch:
+              type: integer
+              enum:
+                - 0
+                - 1
+            name:
+              type: string
+            streamtype:
+              type: integer
+              enum:
+                - 0
+                - 1
+              description: '0=local, 1=live'
+            url:
+              type: string
+          required:
+            - url
+            - name
+            - switch
+            - streamtype
+      required:
+        - group
+        - opt
+        - data
+    StreamplaySwitchRequest:
+      type: object
+      description: Switch to an indexed stream. (ZowieBox). option=setinfo
+      properties:
+        group:
+          type: string
+          enum:
+            - streamplay
+        opt:
+          type: string
+          enum:
+            - streamplay_switch
+        data:
+          type: object
+          required:
+            - switch
+            - index
+          properties:
+            switch:
+              type: integer
+              enum:
+                - 0
+                - 1
+              description: '0: on and 1: off'
+            index:
+              type: integer
+      required:
+        - group
+        - opt
+        - data
+    StreamplayGetAllRequest:
+      type: object
+      description: Get all decoding URLs (ZowieBox). option=getinfo
+      properties:
+        group:
+          type: string
+          enum:
+            - streamplay
+        opt:
+          type: string
+          enum:
+            - streamplay_get_all
+      required:
+        - group
+        - opt
+    StreamplayDeleteRequest:
+      type: object
+      description: Delete a decoding URL by index (ZowieBox). option=setinfo
+      properties:
+        group:
+          type: string
+          enum:
+            - streamplay
+        opt:
+          type: string
+          enum:
+            - streamplay_del
+        data:
+          type: object
+          properties:
+            index:
+              type: integer
+          required:
+            - index
+      required:
+        - group
+        - opt
+        - data
+    StreamplayModifyRequest:
+      type: object
+      description: Modify a decoding URL entry (ZowieBox). option=setinfo
+      properties:
+        group:
+          type: string
+          enum:
+            - streamplay
+        opt:
+          type: string
+          enum:
+            - streamplay_modify
+        data:
+          type: object
+          properties:
+            index:
+              type: integer
+            switch:
+              type: integer
+              enum:
+                - 0
+                - 1
+            name:
+              type: string
+            streamtype:
+              type: integer
+              enum:
+                - 0
+                - 1
+            url:
+              type: string
+          required:
+            - index
+      required:
+        - group
+        - opt
+        - data
+    GetDecoderStateRequest:
+      type: object
+      description: Get current decoder state (ZowieBox). option=getinfo
+      properties:
+        group:
+          type: string
+          enum:
+            - streamplay
+        opt:
+          type: string
+          enum:
+            - get_decoder_state
+      required:
+        - group
+        - opt
+    NdiFindRequest:
+      type: object
+      description: Search for NDI sources on the LAN (ZowieBox). option=setinfo
+      properties:
+        group:
+          type: string
+          enum:
+            - streamplay_ndi
+        opt:
+          type: string
+          enum:
+            - ndi_find
+      required:
+        - group
+        - opt
+    NdiGetAllRequest:
+      type: object
+      description: Get all discovered NDI sources (ZowieBox). option=getinfo
+      properties:
+        group:
+          type: string
+          enum:
+            - streamplay_ndi
+        opt:
+          type: string
+          enum:
+            - ndi_get_all
+      required:
+        - group
+        - opt
+    NdiRecvRequest:
+      type: object
+      description: Enable NDI decoding by source name (ZowieBox). option=setinfo
+      properties:
+        group:
+          type: string
+          enum:
+            - streamplay_ndi
+        opt:
+          type: string
+          enum:
+            - ndi_recv
+        data:
+          type: object
+          properties:
+            ndi_name:
+              type: string
+          required:
+            - ndi_name
+      required:
+        - group
+        - opt
+        - data
+    NdiCloseRequest:
+      type: object
+      description: Disable NDI decoding (ZowieBox). option=setinfo
+      properties:
+        group:
+          type: string
+          enum:
+            - streamplay_ndi
+        opt:
+          type: string
+          enum:
+            - ndi_close
+      required:
+        - group
+        - opt
+    NdiGetRecvConfigRequest:
+      type: object
+      description: Get NDI decoder receive group (ZowieBox). option=getinfo
+      properties:
+        group:
+          type: string
+          enum:
+            - streamplay_ndi
+        opt:
+          type: string
+          enum:
+            - ndi_get_recv_config
+      required:
+        - group
+        - opt
+    NdiSetRecvConfigRequest:
+      type: object
+      description: Set NDI decoder receive group (ZowieBox). option=setinfo
+      properties:
+        group:
+          type: string
+          enum:
+            - streamplay_ndi
+        opt:
+          type: string
+          enum:
+            - ndi_set_recv_config
+        data:
+          type: object
+          properties:
+            groups:
+              type: string
+          required:
+            - groups
+      required:
+        - group
+        - opt
+        - data
+    GetTaskListRequest:
+      type: object
+      description: Get recording task list. option=getinfo
+      properties:
+        group:
+          type: string
+          enum:
+            - record
+        opt:
+          type: string
+          enum:
+            - get_task_list
+      required:
+        - group
+        - opt
+    SetTaskInfoRequest:
+      type: object
+      description: Modify recording task settings. option=setinfo
+      properties:
+        group:
+          type: string
+          enum:
+            - record
+        opt:
+          type: string
+          enum:
+            - set_task_info
+        data:
+          type: object
+          properties:
+            index:
+              type: string
+              description: 'e.g. usb1_0, sdcard_0, nas1_0'
+            name:
+              type: string
+            file_name_prefix:
+              type: string
+            record_format:
+              type: integer
+              enum:
+                - 0
+                - 1
+                - 2
+              description: '0=mp4, 1=ts, 2=mov'
+            record_mode:
+              type: integer
+              enum:
+                - 0
+                - 1
+              description: '0=manual, 1=auto start'
+            record_loop_mode:
+              type: integer
+              enum:
+                - 0
+                - 1
+            limit_type:
+              type: integer
+              enum:
+                - 0
+                - 1
+              description: '0=size split, 1=time split'
+            size_limit:
+              type: integer
+              enum:
+                - 0
+                - 1
+                - 2
+                - 3
+              description: '0=auto, 1=1.5G, 2=3G, 3=4G'
+            time_limit:
+              type: integer
+              enum:
+                - 0
+                - 1
+                - 2
+                - 3
+              description: '0=auto, 1=15min, 2=30min, 3=45min'
+            storage_id:
+              type: integer
+            stream_id:
+              type: integer
+          required:
+            - index
+      required:
+        - group
+        - opt
+        - data
+    SetTaskEnableRequest:
+      type: object
+      description: Start/stop/pause recording on a storage device. option=setinfo
+      properties:
+        group:
+          type: string
+          enum:
+            - record
+        opt:
+          type: string
+          enum:
+            - set_task_enable
+        data:
+          type: object
+          properties:
+            index:
+              type: string
+              enum:
+                - usb1_0
+                - sdcard_0
+                - nas1_0
+            enable:
+              type: integer
+              enum:
+                - 0
+                - 1
+                - 2
+                - 3
+              description: '0=off, 1=on, 2=pause, 3=continue'
+          required:
+            - index
+            - enable
+      required:
+        - group
+        - opt
+        - data
+    GetTaskSaveFilesRequest:
+      type: object
+      description: Get paginated video file list for a storage device. option=getinfo
+      properties:
+        group:
+          type: string
+          enum:
+            - record
+        opt:
+          type: string
+          enum:
+            - get_task_savefiles_page
+        data:
+          type: object
+          properties:
+            index:
+              type: string
+              enum:
+                - usb1_0
+                - sdcard_0
+                - nas1_0
+            control:
+              type: object
+              properties:
+                currentPage:
+                  type: integer
+                default_Record_Num:
+                  type: integer
+            case_num:
+              type: integer
+          required:
+            - index
+      required:
+        - group
+        - opt
+        - data
+  responses: {}
